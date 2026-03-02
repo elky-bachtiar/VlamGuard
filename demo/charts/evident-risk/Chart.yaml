@@ -1,0 +1,4 @@
+apiVersion: v2
+name: evident-risk
+description: VlamGuard Demo - Evident Risk (hard block)
+version: 0.1.0

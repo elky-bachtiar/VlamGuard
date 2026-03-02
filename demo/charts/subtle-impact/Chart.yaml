@@ -1,0 +1,4 @@
+apiVersion: v2
+name: subtle-impact
+description: VlamGuard Demo - Subtle Impact (AI wow moment)
+version: 0.1.0

@@ -1,0 +1,4 @@
+apiVersion: v2
+name: clean-deploy
+description: VlamGuard Demo - Clean Deploy (all checks pass)
+version: 0.1.0

@@ -1,0 +1,15 @@
+services:
+  vlamguard:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - VLAM_AI_BASE_URL=${VLAM_AI_BASE_URL:-http://host.docker.internal:11434/v1}
+      - VLAM_AI_MODEL=${VLAM_AI_MODEL:-llama3.2}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import httpx; httpx.get('http://localhost:8000/health').raise_for_status()"]
+      interval: 10s
+      timeout: 5s
+      retries: 3

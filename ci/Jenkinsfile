@@ -1,0 +1,36 @@
+pipeline {
+    agent {
+        docker {
+            image 'vlamguard:latest'
+            args '--entrypoint=""'
+        }
+    }
+
+    environment {
+        VLAM_AI_BASE_URL = credentials('vlam-ai-url')
+        VLAM_AI_MODEL = 'llama3.2'
+    }
+
+    stages {
+        stage('VlamGuard Risk Analysis') {
+            steps {
+                sh '''
+                    vlamguard check \
+                        --chart ./helm-chart \
+                        --values ./values-${DEPLOY_ENV}.yaml \
+                        --env ${DEPLOY_ENV} \
+                        --output markdown \
+                        --output-file vlamguard-report.md
+                '''
+            }
+            post {
+                always {
+                    archiveArtifacts artifacts: 'vlamguard-report.md', allowEmptyArchive: true
+                }
+                failure {
+                    echo 'VlamGuard: Deployment BLOCKED due to policy violations.'
+                }
+            }
+        }
+    }
+}
