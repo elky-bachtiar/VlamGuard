@@ -3,9 +3,12 @@ services:
     build: .
     ports:
       - "8000:8000"
+    env_file:
+      - .env
     environment:
       - VLAM_AI_BASE_URL=${VLAM_AI_BASE_URL:-http://host.docker.internal:11434/v1}
       - VLAM_AI_MODEL=${VLAM_AI_MODEL:-llama3.2}
+      - VLAM_AI_API_KEY=${VLAM_AI_API_KEY:-}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     healthcheck:

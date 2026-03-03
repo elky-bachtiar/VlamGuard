@@ -43,6 +43,16 @@ class AIContext(BaseModel):
     rollback_suggestion: str
 
 
+class ExternalFinding(BaseModel):
+    """Finding from an external validation tool (kube-score, KubeLinter, Polaris)."""
+
+    tool: str = Field(description="Tool name: kube-score, kube-linter, or polaris")
+    check_id: str
+    severity: str = Field(description="critical, warning, or ok")
+    message: str
+    resource: str | None = None
+
+
 class AnalyzeResponse(BaseModel):
     """POST /api/v1/analyze response body."""
 
@@ -51,5 +61,7 @@ class AnalyzeResponse(BaseModel):
     blocked: bool
     hard_blocks: list[str]
     policy_checks: list[PolicyCheckResult]
+    external_findings: list[ExternalFinding] = Field(default_factory=list)
+    polaris_score: int | None = None
     ai_context: AIContext | None
     metadata: dict

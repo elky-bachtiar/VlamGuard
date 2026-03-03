@@ -19,3 +19,7 @@ class AnalyzeRequest(BaseModel):
         default=False,
         description="Force analysis without AI context",
     )
+    skip_external: bool = Field(
+        default=False,
+        description="Skip external tool validation (kube-score, KubeLinter, Polaris)",
+    )

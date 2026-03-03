@@ -19,3 +19,30 @@ vlamguard-check:
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+vlamguard-check-no-ai:
+  stage: test
+  image: vlamguard:latest
+  variables:
+    VLAM_AI_BASE_URL: "${VLAM_AI_URL}"
+    VLAM_AI_MODEL: "llama3.2"
+  script:
+    - vlamguard check
+        --chart ./helm-chart
+        --values ./values-${DEPLOY_ENV}.yaml
+        --env ${DEPLOY_ENV}
+        --skip-ai
+        --output markdown
+        --output-file vlamguard-report-no-ai.md
+  artifacts:
+    paths:
+      - vlamguard-report-no-ai.md
+    when: always
+    expire_in: 30 days
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      when: manual
+      allow_failure: true
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      when: manual
+      allow_failure: true

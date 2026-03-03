@@ -48,6 +48,35 @@ def print_report(response: AnalyzeResponse, console: Console | None = None) -> N
 
     console.print(table)
 
+    # External tool findings
+    if response.external_findings:
+        ext_table = Table(title="External Tool Findings", show_header=True)
+        ext_table.add_column("Tool", style="bold")
+        ext_table.add_column("Check")
+        ext_table.add_column("Severity")
+        ext_table.add_column("Resource")
+        ext_table.add_column("Message")
+
+        for finding in response.external_findings:
+            sev_style = {"critical": "red", "warning": "yellow"}.get(finding.severity, "white")
+            ext_table.add_row(
+                finding.tool,
+                finding.check_id,
+                f"[{sev_style}]{finding.severity}[/]",
+                finding.resource or "-",
+                finding.message,
+            )
+
+        console.print(ext_table)
+
+    # Polaris score comparison
+    if response.polaris_score is not None:
+        console.print(
+            f"\n[bold]Score Comparison:[/] "
+            f"VlamGuard {response.risk_score}/100 (risk) vs "
+            f"Polaris {response.polaris_score}/100 (compliance)"
+        )
+
     if response.ai_context:
         console.print(Panel(response.ai_context.summary, title="AI Analysis", border_style="blue"))
         if response.ai_context.recommendations:

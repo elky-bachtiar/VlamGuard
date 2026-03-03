@@ -8,6 +8,12 @@ Intelligent change risk engine for infrastructure changes. Combines a determinis
 - [uv](https://docs.astral.sh/uv/getting-started/installation/)
 - [Helm 3](https://helm.sh/docs/intro/install/) (for chart rendering)
 
+Optional (for extended validation):
+
+- [kube-score](https://github.com/zegl/kube-score) — extra validation layer
+- [KubeLinter](https://github.com/stackrox/kube-linter) — security-focused checks
+- [Polaris](https://github.com/FairwindsOps/polaris) — score-based validation benchmark
+
 ## Installation
 
 ```bash
@@ -42,6 +48,7 @@ uv run vlamguard check --manifests ./tests/fixtures/evident-risk.yaml --env prod
 | `--manifests` | — | Path to pre-rendered YAML (bypasses Helm) |
 | `--env` | `production` | Target environment: `dev`, `staging`, `production` |
 | `--skip-ai` | `false` | Skip AI context generation |
+| `--skip-external` | `false` | Skip external tools (kube-score, KubeLinter, Polaris) |
 | `--output` | `terminal` | Output format: `terminal`, `json`, `markdown` |
 | `--output-file` | — | Write report to file instead of stdout |
 
@@ -66,6 +73,42 @@ uv run vlamguard check --manifests manifest.yaml --skip-ai --output json
 uv run vlamguard check --manifests manifest.yaml --skip-ai --output markdown --output-file report.md
 ```
 
+## External Tool Integration
+
+VlamGuard integrates with three established Kubernetes validation tools as supplementary validation layers. Each tool is called via subprocess and results are included in the report. When a tool is not installed, VlamGuard gracefully skips it.
+
+| Tool | Role | Output |
+|------|------|--------|
+| **kube-score** | Broad static analysis (reliability + security) | Findings in report |
+| **KubeLinter** | Security-focused checks (non-root, least privilege, secrets) | Findings in report |
+| **Polaris** | Score-based compliance benchmark | Score comparison + findings |
+
+### How it works
+
+```
+Helm render → VlamGuard policy engine (17 checks) → External tools → AI context → Report
+```
+
+External tools run after VlamGuard's own checks and before AI analysis. Their findings appear in a dedicated "External Tool Findings" section in the report. Polaris provides a compliance score shown side-by-side with VlamGuard's risk score.
+
+### What VlamGuard adds
+
+| | kube-score / KubeLinter / Polaris | VlamGuard |
+|---|---|---|
+| **Finds issues** | Yes | Yes |
+| **Explains why** | Short hints | AI-generated context |
+| **Impact analysis** | No | Yes |
+| **Recommendations** | Generic | Contextual per deployment |
+| **Rollback suggestion** | No | Yes |
+| **Environment-aware** | No | Yes (production = strict) |
+| **Pipeline gating** | Exit code only | Hard block + soft risk + scoring |
+
+### Skip external tools
+
+```bash
+uv run vlamguard check --chart ./my-chart --skip-external
+```
+
 ## API Server
 
 ```bash
@@ -76,6 +119,34 @@ Endpoints:
 
 - `GET /health` — health check
 - `POST /api/v1/analyze` — analyze a Helm chart
+
+### Request body
+
+```json
+{
+  "chart": "./my-chart",
+  "values": {"replicaCount": 3},
+  "environment": "production",
+  "skip_ai": false,
+  "skip_external": false
+}
+```
+
+### Response body
+
+```json
+{
+  "risk_score": 0,
+  "risk_level": "low",
+  "blocked": false,
+  "hard_blocks": [],
+  "policy_checks": [...],
+  "external_findings": [...],
+  "polaris_score": 85,
+  "ai_context": {...},
+  "metadata": {...}
+}
+```
 
 ## Helm Chart
 
@@ -109,19 +180,59 @@ VlamGuard calls an OpenAI-compatible API for AI-powered analysis. Configure via 
 
 Works with Ollama, vLLM, or any OpenAI-compatible endpoint. When unavailable or `--skip-ai` is set, VlamGuard runs policy checks only.
 
+AI responses are validated with both JSON Schema and Pydantic. Invalid or incomplete AI output is silently discarded — the deterministic engine always runs.
+
 ## Docker
 
 ```bash
 docker compose up --build
 ```
 
-The API server runs on `http://localhost:8000`.
+The Docker image includes Helm, kube-score, KubeLinter, and Polaris pre-installed. The API server runs on `http://localhost:8000`.
+
+## CI/CD Integration
+
+Example configs are provided in `ci/`:
+
+### Jenkins
+
+```groovy
+// ci/Jenkinsfile
+stage('VlamGuard Risk Analysis') {
+    steps {
+        sh 'vlamguard check --chart ./helm-chart --values ./values-${DEPLOY_ENV}.yaml --env ${DEPLOY_ENV} --output markdown --output-file vlamguard-report.md'
+    }
+}
+```
+
+### GitLab CI
+
+```yaml
+# ci/.gitlab-ci.yml
+vlamguard-check:
+  stage: test
+  image: vlamguard:latest
+  script:
+    - vlamguard check --chart ./helm-chart --values ./values-${DEPLOY_ENV}.yaml --env ${DEPLOY_ENV} --output markdown --output-file vlamguard-report.md
+```
+
+## Demo
+
+Run all demo scenarios:
+
+```bash
+bash demo/run_demo.sh
+```
+
+Seven scenarios covering clean deploys, evident risks, subtle impacts, best-practice violations, hardened deployments, self-analysis, and Polaris score comparison.
 
 ## Tests
 
 ```bash
-uv run pytest              # all tests
+uv run pytest              # all tests (184)
 uv run pytest --cov        # with coverage
+uv run pytest tests/unit/  # unit + integration only
+uv run pytest tests/e2e/   # E2E CLI tests (requires Helm)
 ```
 
 ## Policy Checks

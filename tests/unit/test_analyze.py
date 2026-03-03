@@ -187,3 +187,103 @@ class TestAnalyzePipeline:
                 await analyze(request)
 
         mock_ai.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_skip_external_flag(self):
+        """When skip_external=True, external tools are not called."""
+        manifests = [
+            {
+                "kind": "Deployment",
+                "metadata": {"name": "web"},
+                "spec": {
+                    "replicas": 3,
+                    "template": {
+                        "spec": {
+                            "securityContext": {"runAsUser": 1000, "runAsGroup": 1000},
+                            "containers": [
+                                {
+                                    "name": "app",
+                                    "image": "nginx:1.25.3",
+                                    "securityContext": {
+                                        "runAsNonRoot": True,
+                                        "privileged": False,
+                                        "readOnlyRootFilesystem": True,
+                                    },
+                                    "resources": {
+                                        "requests": {"cpu": "100m", "memory": "128Mi"},
+                                        "limits": {"cpu": "500m", "memory": "256Mi"},
+                                    },
+                                }
+                            ]
+                        }
+                    },
+                },
+            }
+        ]
+
+        from unittest.mock import MagicMock
+
+        mock_ext = MagicMock(return_value=([], None))
+        with patch("vlamguard.analyze.render_chart", return_value=manifests):
+            with patch("vlamguard.analyze.get_ai_context", new_callable=AsyncMock, return_value=None):
+                with patch("vlamguard.analyze.run_all_external_tools", mock_ext):
+                    request = AnalyzeRequest(
+                        chart="./chart", values={}, environment="production",
+                        skip_ai=True, skip_external=True,
+                    )
+                    response = await analyze(request)
+
+        mock_ext.assert_not_called()
+        assert response.external_findings == []
+        assert response.polaris_score is None
+
+    @pytest.mark.asyncio
+    async def test_external_findings_in_response(self):
+        """External tool findings are included in the response."""
+        from vlamguard.models.response import ExternalFinding
+
+        manifests = [
+            {
+                "kind": "Deployment",
+                "metadata": {"name": "web"},
+                "spec": {
+                    "replicas": 3,
+                    "template": {
+                        "spec": {
+                            "securityContext": {"runAsUser": 1000, "runAsGroup": 1000},
+                            "containers": [
+                                {
+                                    "name": "app",
+                                    "image": "nginx:1.25.3",
+                                    "securityContext": {
+                                        "runAsNonRoot": True,
+                                        "privileged": False,
+                                        "readOnlyRootFilesystem": True,
+                                    },
+                                    "resources": {
+                                        "requests": {"cpu": "100m", "memory": "128Mi"},
+                                        "limits": {"cpu": "500m", "memory": "256Mi"},
+                                    },
+                                }
+                            ]
+                        }
+                    },
+                },
+            }
+        ]
+
+        ext_findings = [
+            ExternalFinding(tool="kube-score", check_id="test", severity="warning", message="Test finding")
+        ]
+
+        with patch("vlamguard.analyze.render_chart", return_value=manifests):
+            with patch("vlamguard.analyze.get_ai_context", new_callable=AsyncMock, return_value=None):
+                with patch("vlamguard.analyze.run_all_external_tools", return_value=(ext_findings, 85)):
+                    request = AnalyzeRequest(
+                        chart="./chart", values={}, environment="production", skip_ai=True,
+                    )
+                    response = await analyze(request)
+
+        assert len(response.external_findings) == 1
+        assert response.external_findings[0].tool == "kube-score"
+        assert response.polaris_score == 85

@@ -136,5 +136,7 @@ class TestAnalyzeEndpoint:
         assert "blocked" in data
         assert "hard_blocks" in data
         assert "policy_checks" in data
+        assert "external_findings" in data
+        assert "polaris_score" in data
         assert "ai_context" in data
         assert "metadata" in data

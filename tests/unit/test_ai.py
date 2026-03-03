@@ -89,6 +89,47 @@ class TestSchemaValidation:
         result = validate_ai_response("not a dict")
         assert result is None
 
+    def test_empty_summary_rejected_by_jsonschema(self):
+        data = {
+            "summary": "",
+            "impact_analysis": [],
+            "recommendations": ["Do something."],
+            "rollback_suggestion": "kubectl rollout undo",
+        }
+        result = validate_ai_response(data)
+        assert result is None
+
+    def test_invalid_severity_rejected_by_jsonschema(self):
+        data = {
+            "summary": "Test.",
+            "impact_analysis": [{"severity": "unknown", "resource": "Deployment/web", "description": "Bad."}],
+            "recommendations": ["Fix it."],
+            "rollback_suggestion": "kubectl rollout undo",
+        }
+        result = validate_ai_response(data)
+        assert result is None
+
+    def test_extra_fields_rejected_by_jsonschema(self):
+        data = {
+            "summary": "Test.",
+            "impact_analysis": [],
+            "recommendations": ["Fix it."],
+            "rollback_suggestion": "kubectl rollout undo",
+            "extra_field": "should fail",
+        }
+        result = validate_ai_response(data)
+        assert result is None
+
+    def test_empty_recommendations_rejected_by_jsonschema(self):
+        data = {
+            "summary": "Test.",
+            "impact_analysis": [],
+            "recommendations": [],
+            "rollback_suggestion": "kubectl rollout undo",
+        }
+        result = validate_ai_response(data)
+        assert result is None
+
 
 class TestGetAIContext:
     @pytest.mark.asyncio

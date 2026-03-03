@@ -3,6 +3,7 @@
 from vlamguard.models.response import (
     AIContext,
     AnalyzeResponse,
+    ExternalFinding,
     ImpactItem,
     PolicyCheckResult,
     RiskLevel,
@@ -10,7 +11,12 @@ from vlamguard.models.response import (
 from vlamguard.report.generator import generate_markdown
 
 
-def _make_response(blocked: bool = False, ai: bool = False) -> AnalyzeResponse:
+def _make_response(
+    blocked: bool = False,
+    ai: bool = False,
+    external: bool = False,
+    polaris_score: int | None = None,
+) -> AnalyzeResponse:
     checks = [
         PolicyCheckResult(
             check_id="image_tag",
@@ -30,12 +36,32 @@ def _make_response(blocked: bool = False, ai: bool = False) -> AnalyzeResponse:
             recommendations=["Pin image tag."],
             rollback_suggestion="kubectl rollout undo",
         )
+    external_findings = []
+    if external:
+        external_findings = [
+            ExternalFinding(
+                tool="kube-score",
+                check_id="container-image-tag",
+                severity="critical",
+                message="Image uses latest tag",
+                resource="Deployment/web",
+            ),
+            ExternalFinding(
+                tool="kube-linter",
+                check_id="no-read-only-root-fs",
+                severity="warning",
+                message="Container not using read-only root filesystem",
+                resource="Deployment/web",
+            ),
+        ]
     return AnalyzeResponse(
         risk_score=100 if blocked else 0,
         risk_level=RiskLevel.CRITICAL if blocked else RiskLevel.LOW,
         blocked=blocked,
         hard_blocks=["Image Tag Policy: Uses latest tag."] if blocked else [],
         policy_checks=checks,
+        external_findings=external_findings,
+        polaris_score=polaris_score,
         ai_context=ai_context,
         metadata={"environment": "production", "chart": "test"},
     )
@@ -71,3 +97,29 @@ class TestMarkdownReport:
         resp = _make_response(blocked=False)
         md = generate_markdown(resp)
         assert "Image Tag Policy" in md
+
+    def test_external_findings_section(self) -> None:
+        resp = _make_response(blocked=True, external=True)
+        md = generate_markdown(resp)
+        assert "External Tool Findings" in md
+        assert "kube-score" in md
+        assert "kube-linter" in md
+        assert "container-image-tag" in md
+        assert "no-read-only-root-fs" in md
+
+    def test_no_external_section_when_empty(self) -> None:
+        resp = _make_response(blocked=False)
+        md = generate_markdown(resp)
+        assert "External Tool Findings" not in md
+
+    def test_polaris_score_comparison(self) -> None:
+        resp = _make_response(blocked=False, polaris_score=72)
+        md = generate_markdown(resp)
+        assert "Score Comparison" in md
+        assert "Polaris" in md
+        assert "72" in md
+
+    def test_no_polaris_section_when_none(self) -> None:
+        resp = _make_response(blocked=False, polaris_score=None)
+        md = generate_markdown(resp)
+        assert "Score Comparison" not in md

@@ -10,10 +10,11 @@ from rich.console import Console
 
 from vlamguard.ai.context import get_ai_context
 from vlamguard.ai.filtering import extract_metadata
+from vlamguard.engine.external import run_all_external_tools
 from vlamguard.engine.helm import HelmRenderError, parse_manifests, render_chart
 from vlamguard.engine.registry import get_check_fns
 from vlamguard.engine.scoring import calculate_risk
-from vlamguard.models.response import AnalyzeResponse, PolicyCheckResult
+from vlamguard.models.response import AnalyzeResponse, ExternalFinding, PolicyCheckResult
 from vlamguard.report.generator import generate_markdown
 from vlamguard.report.terminal import print_report
 
@@ -32,8 +33,10 @@ def _root() -> None:
 
 async def _analyze_manifests(
     manifests: list[dict],
+    manifests_yaml: str,
     environment: str,
     skip_ai: bool,
+    skip_external: bool,
 ) -> AnalyzeResponse:
     """Run analysis on pre-parsed manifests."""
     all_results: list[PolicyCheckResult] = []
@@ -45,6 +48,12 @@ async def _analyze_manifests(
             all_results.append(result)
 
     risk = calculate_risk(all_results, environment)
+
+    # External tools (optional)
+    external_findings: list[ExternalFinding] = []
+    polaris_score: int | None = None
+    if not skip_external:
+        external_findings, polaris_score = run_all_external_tools(manifests_yaml)
 
     ai_context = None
     if not skip_ai:
@@ -61,6 +70,8 @@ async def _analyze_manifests(
         blocked=risk.blocked,
         hard_blocks=risk.hard_blocks,
         policy_checks=all_results,
+        external_findings=external_findings,
+        polaris_score=polaris_score,
         ai_context=ai_context,
         metadata={
             "environment": environment,
@@ -76,6 +87,7 @@ def check(
     manifests: str = typer.Option(None, help="Path to pre-rendered YAML manifests (bypasses Helm)"),
     env: str = typer.Option("production", help="Target environment: dev, staging, production"),
     skip_ai: bool = typer.Option(False, "--skip-ai", help="Skip AI context generation"),
+    skip_external: bool = typer.Option(False, "--skip-external", help="Skip external tools (kube-score, KubeLinter, Polaris)"),
     output: str = typer.Option("terminal", help="Output format: terminal, json, markdown"),
     output_file: str = typer.Option(None, "--output-file", help="Write report to file"),
 ) -> None:
@@ -101,8 +113,11 @@ def check(
                     raise typer.Exit(code=2)
                 values_data = yaml.safe_load(values_path.read_text()) or {}
             parsed = render_chart(chart, values_data)
+            yaml_content = yaml.dump_all(parsed, default_flow_style=False)
 
-        response = asyncio.run(_analyze_manifests(parsed, env, skip_ai))
+        response = asyncio.run(
+            _analyze_manifests(parsed, yaml_content, env, skip_ai, skip_external)
+        )
 
         if output == "json":
             report = response.model_dump_json(indent=2)

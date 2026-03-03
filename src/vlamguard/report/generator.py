@@ -33,6 +33,32 @@ def generate_markdown(response: AnalyzeResponse) -> str:
         lines.append(f"| {check.name} | {icon} | {check.severity} | {check.message} |")
     lines.append("")
 
+    # External tool findings
+    if response.external_findings:
+        lines.append("## External Tool Findings")
+        lines.append("")
+        lines.append("| Tool | Check | Severity | Resource | Message |")
+        lines.append("|------|-------|----------|----------|---------|")
+        for finding in response.external_findings:
+            lines.append(
+                f"| {finding.tool} | {finding.check_id} | {finding.severity} | {finding.resource or '-'} | {finding.message} |"
+            )
+        lines.append("")
+
+    # Polaris score comparison
+    if response.polaris_score is not None:
+        lines.append("## Score Comparison")
+        lines.append("")
+        lines.append("| Engine | Score | Scale |")
+        lines.append("|--------|-------|-------|")
+        lines.append(
+            f"| VlamGuard | {response.risk_score}/100 | 0 = no risk, 100 = critical |"
+        )
+        lines.append(
+            f"| Polaris | {response.polaris_score}/100 | 100 = perfect, 0 = all failing |"
+        )
+        lines.append("")
+
     if response.ai_context:
         lines.append("## AI Analysis")
         lines.append("")
