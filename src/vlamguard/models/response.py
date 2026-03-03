@@ -20,9 +20,10 @@ class PolicyCheckResult(BaseModel):
     check_id: str
     name: str
     passed: bool
-    severity: str = Field(description="critical or high")
+    severity: str = Field(description="critical, high, or medium")
     message: str
     details: dict | None = None
+    category: str | None = Field(default=None)
 
 
 class ImpactItem(BaseModel):

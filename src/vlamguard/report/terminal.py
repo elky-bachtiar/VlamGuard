@@ -43,7 +43,7 @@ def print_report(response: AnalyzeResponse, console: Console | None = None) -> N
 
     for check in response.policy_checks:
         result = "[green]PASS[/]" if check.passed else "[red]FAIL[/]"
-        sev_style = "red" if check.severity == "critical" else "yellow"
+        sev_style = {"critical": "red", "high": "yellow", "medium": "cyan"}.get(check.severity, "white")
         table.add_row(check.name, result, f"[{sev_style}]{check.severity}[/]", check.message)
 
     console.print(table)

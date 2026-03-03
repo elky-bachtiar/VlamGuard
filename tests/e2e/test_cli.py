@@ -85,13 +85,20 @@ class TestCLIWithFixtures:
         assert "VlamGuard Risk Report" in result.stdout
 
     def test_dev_env_is_lenient(self):
-        """In dev, image:latest is a soft risk, not a hard block."""
+        """In dev, critical checks become soft risks, not hard blocks.
+
+        However, evident-risk.yaml fails many soft-risk checks (image_tag=25,
+        security_context=25, readonly_root_fs=20, run_as_user_group=20 = 90),
+        which exceeds the 60-point threshold, so it is still blocked.
+        """
         result = self._run_cli(
             "check",
             "--manifests", str(FIXTURES / "evident-risk.yaml"),
             "--env", "dev",
             "--skip-ai",
         )
-        # In dev, image_tag and security_context become soft risks.
-        # RBAC is not in this manifest. So it should NOT be blocked.
-        assert result.returncode == 0
+        # In dev, all security checks become soft_risk (not hard_block).
+        # But accumulated soft risk (90) > 60 threshold, so still blocked.
+        assert result.returncode == 1
+        # Verify it's a soft-risk block, not a hard block
+        assert "Hard Blocks" not in result.stdout

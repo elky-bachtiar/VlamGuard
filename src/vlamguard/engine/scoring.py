@@ -5,14 +5,6 @@ from dataclasses import dataclass
 from vlamguard.engine.environment import CheckBehavior, get_check_behavior
 from vlamguard.models.response import PolicyCheckResult, RiskLevel
 
-_SOFT_RISK_POINTS: dict[str, int] = {
-    "image_tag": 25,
-    "security_context": 25,
-    "rbac_scope": 0,
-    "resource_limits": 25,
-    "replica_count": 30,
-}
-
 
 @dataclass
 class RiskResult:
@@ -38,7 +30,10 @@ def calculate_risk(checks: list[PolicyCheckResult], environment: str) -> RiskRes
         if behavior == CheckBehavior.HARD_BLOCK:
             hard_blocks.append(f"{check.name}: {check.message}")
         elif behavior == CheckBehavior.SOFT_RISK:
-            soft_score += _SOFT_RISK_POINTS.get(check.check_id, 10)
+            from vlamguard.engine.registry import get_risk_points
+
+            risk_points = get_risk_points()
+            soft_score += risk_points.get(check.check_id, 10)
 
     if hard_blocks:
         return RiskResult(

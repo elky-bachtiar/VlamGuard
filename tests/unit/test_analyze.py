@@ -20,14 +20,24 @@ class TestAnalyzePipeline:
                     "replicas": 3,
                     "template": {
                         "spec": {
+                            "securityContext": {"runAsUser": 1000, "runAsGroup": 1000},
+                            "affinity": {
+                                "podAntiAffinity": {
+                                    "preferredDuringSchedulingIgnoredDuringExecution": [],
+                                },
+                            },
                             "containers": [
                                 {
                                     "name": "app",
                                     "image": "nginx:1.25.3",
+                                    "imagePullPolicy": "Always",
                                     "securityContext": {
                                         "runAsNonRoot": True,
                                         "privileged": False,
+                                        "readOnlyRootFilesystem": True,
                                     },
+                                    "livenessProbe": {"httpGet": {"path": "/healthz", "port": 8080}},
+                                    "readinessProbe": {"httpGet": {"path": "/ready", "port": 8080}},
                                     "resources": {
                                         "requests": {"cpu": "100m", "memory": "128Mi"},
                                         "limits": {"cpu": "500m", "memory": "256Mi"},
@@ -93,14 +103,19 @@ class TestAnalyzePipeline:
                     "replicas": 1,
                     "template": {
                         "spec": {
+                            "securityContext": {"runAsUser": 1000, "runAsGroup": 1000},
                             "containers": [
                                 {
                                     "name": "app",
                                     "image": "nginx:1.25.3",
+                                    "imagePullPolicy": "Always",
                                     "securityContext": {
                                         "runAsNonRoot": True,
                                         "privileged": False,
+                                        "readOnlyRootFilesystem": True,
                                     },
+                                    "livenessProbe": {"httpGet": {"path": "/healthz", "port": 8080}},
+                                    "readinessProbe": {"httpGet": {"path": "/ready", "port": 8080}},
                                     "resources": {
                                         "requests": {"cpu": "100m", "memory": "128Mi"},
                                         "limits": {"cpu": "500m", "memory": "256Mi"},
@@ -133,11 +148,24 @@ class TestAnalyzePipeline:
                     "replicas": 3,
                     "template": {
                         "spec": {
+                            "securityContext": {"runAsUser": 1000, "runAsGroup": 1000},
+                            "affinity": {
+                                "podAntiAffinity": {
+                                    "preferredDuringSchedulingIgnoredDuringExecution": [],
+                                },
+                            },
                             "containers": [
                                 {
                                     "name": "app",
                                     "image": "nginx:1.25.3",
-                                    "securityContext": {"runAsNonRoot": True, "privileged": False},
+                                    "imagePullPolicy": "Always",
+                                    "securityContext": {
+                                        "runAsNonRoot": True,
+                                        "privileged": False,
+                                        "readOnlyRootFilesystem": True,
+                                    },
+                                    "livenessProbe": {"httpGet": {"path": "/healthz", "port": 8080}},
+                                    "readinessProbe": {"httpGet": {"path": "/ready", "port": 8080}},
                                     "resources": {
                                         "requests": {"cpu": "100m", "memory": "128Mi"},
                                         "limits": {"cpu": "500m", "memory": "256Mi"},

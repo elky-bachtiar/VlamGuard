@@ -1,37 +1,25 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: web
+  name: insecure-app
   namespace: production
 spec:
-  replicas: 1
+  replicas: 3
   selector:
     matchLabels:
-      app: web
+      app: insecure-app
   template:
     metadata:
       labels:
-        app: web
+        app: insecure-app
     spec:
-      securityContext:
-        runAsUser: 1000
-        runAsGroup: 1000
       containers:
         - name: app
           image: nginx:1.25.3
-          imagePullPolicy: Always
           securityContext:
             runAsNonRoot: true
             privileged: false
-            readOnlyRootFilesystem: true
-          livenessProbe:
-            httpGet:
-              path: /healthz
-              port: 8080
-          readinessProbe:
-            httpGet:
-              path: /ready
-              port: 8080
+            readOnlyRootFilesystem: false
           resources:
             requests:
               cpu: 100m

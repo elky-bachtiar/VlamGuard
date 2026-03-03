@@ -11,32 +11,19 @@ from rich.console import Console
 from vlamguard.ai.context import get_ai_context
 from vlamguard.ai.filtering import extract_metadata
 from vlamguard.engine.helm import HelmRenderError, parse_manifests, render_chart
-from vlamguard.engine.policies import (
-    check_image_tag,
-    check_rbac_scope,
-    check_replica_count,
-    check_resource_limits,
-    check_security_context,
-)
+from vlamguard.engine.registry import get_check_fns
 from vlamguard.engine.scoring import calculate_risk
 from vlamguard.models.response import AnalyzeResponse, PolicyCheckResult
 from vlamguard.report.generator import generate_markdown
 from vlamguard.report.terminal import print_report
+
+import vlamguard.engine.policies  # noqa: F401
 
 app = typer.Typer(
     name="vlamguard",
     help="VlamGuard — Intelligent change risk engine for infrastructure changes.",
 )
 console = Console()
-
-_ALL_CHECKS = [
-    check_image_tag,
-    check_security_context,
-    check_rbac_scope,
-    check_resource_limits,
-    check_replica_count,
-]
-
 
 @app.callback()
 def _root() -> None:
@@ -51,7 +38,7 @@ async def _analyze_manifests(
     """Run analysis on pre-parsed manifests."""
     all_results: list[PolicyCheckResult] = []
     for manifest in manifests:
-        for check_fn in _ALL_CHECKS:
+        for check_fn in get_check_fns():
             result = check_fn(manifest)
             if result.message.endswith("skipped."):
                 continue
