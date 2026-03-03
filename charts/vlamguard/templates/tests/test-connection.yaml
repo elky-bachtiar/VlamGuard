@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: "{{ include "vlamguard.fullname" . }}-test-connection"
+  labels:
+    {{- include "vlamguard.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": test
+spec:
+  containers:
+    - name: wget
+      image: "busybox:1.36"
+      command: ['wget']
+      args: ['--spider', '--timeout=5', '{{ include "vlamguard.fullname" . }}:{{ .Values.service.port }}/health']
+  restartPolicy: Never

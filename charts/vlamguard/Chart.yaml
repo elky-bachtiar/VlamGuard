@@ -1,0 +1,14 @@
+apiVersion: v2
+name: vlamguard
+description: A Helm chart for VlamGuard — Kubernetes manifest policy analysis
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+keywords:
+  - vlamguard
+  - policy
+  - kubernetes
+  - security
+home: https://github.com/vlamguard/vlamguard
+maintainers:
+  - name: VlamGuard

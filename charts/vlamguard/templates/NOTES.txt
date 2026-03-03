@@ -1,0 +1,22 @@
+VlamGuard has been deployed!
+
+1. Get the application URL:
+{{- if .Values.ingress.enabled }}
+{{- range $host := .Values.ingress.hosts }}
+  http{{ if $.Values.ingress.tls }}s{{ end }}://{{ $host.host }}
+{{- end }}
+{{- else if contains "ClusterIP" .Values.service.type }}
+  kubectl port-forward svc/{{ include "vlamguard.fullname" . }} {{ .Values.service.port }}:{{ .Values.service.port }}
+  Then visit: http://localhost:{{ .Values.service.port }}
+{{- else if contains "LoadBalancer" .Values.service.type }}
+  NOTE: It may take a few minutes for the LoadBalancer IP to be available.
+  kubectl get svc {{ include "vlamguard.fullname" . }} -w
+{{- end }}
+
+2. Check the health endpoint:
+  curl http://localhost:{{ .Values.service.port }}/health
+
+3. Analyze a Helm chart:
+  curl -X POST http://localhost:{{ .Values.service.port }}/analyze \
+    -H "Content-Type: application/json" \
+    -d '{"chart_path": "/path/to/chart", "environment": "production"}'

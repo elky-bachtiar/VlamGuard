@@ -40,5 +40,7 @@ ENV VLAM_AI_MODEL="llama3.2"
 
 EXPOSE 8000
 
+USER 1000:1000
+
 # Default: run API server
 CMD ["uvicorn", "vlamguard.main:app", "--host", "0.0.0.0", "--port", "8000"]

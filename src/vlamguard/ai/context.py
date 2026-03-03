@@ -49,10 +49,14 @@ async def get_ai_context(
         indent=2,
     )
 
+    api_key = os.environ.get("VLAM_AI_API_KEY")
+    headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
+
     try:
         async with httpx.AsyncClient(timeout=_TIMEOUT_SECONDS) as client:
             response = await client.post(
                 f"{base_url}/chat/completions",
+                headers=headers,
                 json={
                     "model": model,
                     "messages": [

@@ -1,0 +1,112 @@
+# -- Number of VlamGuard replicas (ignored when autoscaling is enabled)
+replicaCount: 2
+
+image:
+  # -- Container image repository
+  repository: vlamguard
+  # -- Image pull policy (Always recommended for production)
+  pullPolicy: Always
+  # -- Overrides the image tag (defaults to Chart.appVersion)
+  tag: ""
+
+# -- Image pull secrets for private registries
+imagePullSecrets: []
+# -- Override the chart name
+nameOverride: ""
+# -- Override the full release name
+fullnameOverride: ""
+
+serviceAccount:
+  # -- Create a ServiceAccount
+  create: true
+  # -- Annotations to add to the ServiceAccount
+  annotations: {}
+  # -- The name of the ServiceAccount to use (generated if not set)
+  name: ""
+
+# -- Annotations to add to pods
+podAnnotations: {}
+# -- Labels to add to pods
+podLabels: {}
+
+service:
+  # -- Service type (ClusterIP recommended; avoid NodePort)
+  type: ClusterIP
+  # -- Service port
+  port: 8000
+  # -- Annotations to add to the Service
+  annotations: {}
+
+ingress:
+  # -- Enable Ingress resource
+  enabled: false
+  # -- Ingress class name
+  className: ""
+  # -- Ingress annotations
+  annotations: {}
+  # -- Ingress hosts configuration
+  hosts:
+    - host: vlamguard.local
+      paths:
+        - path: /
+          pathType: Prefix
+  # -- Ingress TLS configuration
+  tls: []
+
+ai:
+  # -- Base URL for the OpenAI-compatible AI backend
+  baseUrl: "http://ollama.default.svc.cluster.local:11434/v1"
+  # -- AI model name
+  model: "llama3.2"
+  apiKeySecret:
+    # -- Create a Secret with the AI API key
+    create: false
+    # -- API key value (only used when create is true)
+    apiKey: ""
+    # -- Use an existing Secret instead of creating one
+    existingSecret: ""
+    # -- Key within the existing Secret
+    key: "VLAM_AI_API_KEY"
+
+resources:
+  requests:
+    # -- CPU request
+    cpu: 100m
+    # -- Memory request
+    memory: 128Mi
+  limits:
+    # -- CPU limit
+    cpu: 500m
+    # -- Memory limit
+    memory: 512Mi
+
+autoscaling:
+  # -- Enable HorizontalPodAutoscaler
+  enabled: false
+  # -- Minimum replicas for HPA
+  minReplicas: 2
+  # -- Maximum replicas for HPA
+  maxReplicas: 10
+  # -- Target CPU utilization percentage
+  targetCPUUtilizationPercentage: 80
+  # -- Target memory utilization percentage (empty to disable)
+  targetMemoryUtilizationPercentage: ""
+
+podDisruptionBudget:
+  # -- Enable PodDisruptionBudget
+  enabled: true
+  # -- Maximum number of unavailable pods
+  maxUnavailable: 1
+  # -- Minimum number of available pods (overrides maxUnavailable if set)
+  minAvailable: ""
+
+networkPolicy:
+  # -- Enable NetworkPolicy
+  enabled: false
+  # -- Port of the AI backend for egress rules
+  aiBackendPort: 11434
+
+# -- Node selector for pod assignment
+nodeSelector: {}
+# -- Tolerations for pod assignment
+tolerations: []
