@@ -23,3 +23,7 @@ class AnalyzeRequest(BaseModel):
         default=False,
         description="Skip external tool validation (kube-score, KubeLinter, Polaris)",
     )
+    security_scan: bool = Field(
+        default=True,
+        description="Run security scan (secrets detection, extended checks, grading)",
+    )

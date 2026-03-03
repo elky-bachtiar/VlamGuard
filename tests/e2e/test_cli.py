@@ -190,3 +190,88 @@ class TestCLIWithCharts:
             "--skip-ai",
         )
         assert result.returncode == 1
+
+
+class TestSecurityScanCLI:
+    """E2E tests for the security-scan command."""
+
+    def _run_cli(self, *args: str) -> subprocess.CompletedProcess:
+        return subprocess.run(
+            [sys.executable, "-m", "vlamguard.cli", *args],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+
+    def test_security_scan_help(self):
+        result = self._run_cli("security-scan", "--help")
+        assert result.returncode == 0
+        assert "security" in result.stdout.lower()
+
+    def test_security_scan_missing_args(self):
+        result = self._run_cli("security-scan")
+        assert result.returncode == 2
+
+    def test_security_scan_with_fixtures(self):
+        result = self._run_cli(
+            "security-scan",
+            "--manifests", str(FIXTURES / "clean-deploy.yaml"),
+            "--env", "production",
+            "--skip-ai",
+        )
+        # clean-deploy has no secrets, so should pass
+        assert result.returncode == 0
+
+    def test_security_scan_json_output(self):
+        result = self._run_cli(
+            "security-scan",
+            "--manifests", str(FIXTURES / "clean-deploy.yaml"),
+            "--env", "production",
+            "--skip-ai",
+            "--output", "json",
+        )
+        assert result.returncode == 0
+        import json
+        data = json.loads(result.stdout)
+        assert "security_grade" in data
+        assert "security" in data
+        assert data["security"] is not None
+
+    def test_security_scan_with_chart(self):
+        result = self._run_cli(
+            "security-scan",
+            "--chart", str(DEMO_CHARTS / "security-scan-showcase"),
+            "--env", "production",
+            "--skip-ai",
+        )
+        # Chart has SYS_ADMIN + exposed services + no automount=false (45 pts)
+        # Not blocked (below 60 threshold) but has security issues
+        assert result.returncode == 0
+
+    def test_security_scan_showcase_json(self):
+        result = self._run_cli(
+            "security-scan",
+            "--chart", str(DEMO_CHARTS / "security-scan-showcase"),
+            "--env", "production",
+            "--skip-ai",
+            "--output", "json",
+        )
+        import json
+        data = json.loads(result.stdout)
+        assert data["security_grade"] is not None
+        assert data["security"]["secrets_detection"]["confirmed_secrets"] > 0
+
+    def test_check_with_no_security_scan_flag(self):
+        result = self._run_cli(
+            "check",
+            "--manifests", str(FIXTURES / "clean-deploy.yaml"),
+            "--env", "production",
+            "--skip-ai",
+            "--no-security-scan",
+            "--output", "json",
+        )
+        assert result.returncode == 0
+        import json
+        data = json.loads(result.stdout)
+        assert data["security"] is None
+        assert data["security_grade"] is None

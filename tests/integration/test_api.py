@@ -22,6 +22,7 @@ def _mock_manifests_clean():
                 "replicas": 3,
                 "template": {
                     "spec": {
+                        "automountServiceAccountToken": False,
                         "securityContext": {"runAsUser": 1000, "runAsGroup": 1000},
                         "affinity": {
                             "podAntiAffinity": {
@@ -56,7 +57,7 @@ def _mock_manifests_clean():
 class TestAnalyzeEndpoint:
     def test_clean_deploy_returns_200(self, client):
         with patch("vlamguard.analyze.render_chart", return_value=_mock_manifests_clean()):
-            with patch("vlamguard.analyze.get_ai_context", new_callable=AsyncMock, return_value=None):
+            with patch("vlamguard.analyze.get_security_ai_context", new_callable=AsyncMock, return_value=(None, [], None)):
                 response = client.post(
                     "/api/v1/analyze",
                     json={
@@ -101,7 +102,7 @@ class TestAnalyzeEndpoint:
         ]
 
         with patch("vlamguard.analyze.render_chart", return_value=manifests):
-            with patch("vlamguard.analyze.get_ai_context", new_callable=AsyncMock, return_value=None):
+            with patch("vlamguard.analyze.get_security_ai_context", new_callable=AsyncMock, return_value=(None, [], None)):
                 response = client.post(
                     "/api/v1/analyze",
                     json={
@@ -119,7 +120,7 @@ class TestAnalyzeEndpoint:
 
     def test_response_shape(self, client):
         with patch("vlamguard.analyze.render_chart", return_value=_mock_manifests_clean()):
-            with patch("vlamguard.analyze.get_ai_context", new_callable=AsyncMock, return_value=None):
+            with patch("vlamguard.analyze.get_security_ai_context", new_callable=AsyncMock, return_value=(None, [], None)):
                 response = client.post(
                     "/api/v1/analyze",
                     json={
@@ -138,5 +139,43 @@ class TestAnalyzeEndpoint:
         assert "policy_checks" in data
         assert "external_findings" in data
         assert "polaris_score" in data
+        assert "security_grade" in data
+        assert "security" in data
         assert "ai_context" in data
         assert "metadata" in data
+
+    def test_security_scan_parameter(self, client):
+        with patch("vlamguard.analyze.render_chart", return_value=_mock_manifests_clean()):
+            with patch("vlamguard.analyze.get_security_ai_context", new_callable=AsyncMock, return_value=(None, [], None)):
+                response = client.post(
+                    "/api/v1/analyze",
+                    json={
+                        "chart": "./chart",
+                        "values": {},
+                        "environment": "production",
+                        "skip_ai": True,
+                        "security_scan": True,
+                    },
+                )
+
+        data = response.json()
+        assert data["security"] is not None
+        assert data["security_grade"] is not None
+
+    def test_security_scan_disabled(self, client):
+        with patch("vlamguard.analyze.render_chart", return_value=_mock_manifests_clean()):
+            with patch("vlamguard.analyze.get_ai_context", new_callable=AsyncMock, return_value=None):
+                response = client.post(
+                    "/api/v1/analyze",
+                    json={
+                        "chart": "./chart",
+                        "values": {},
+                        "environment": "production",
+                        "skip_ai": True,
+                        "security_scan": False,
+                    },
+                )
+
+        data = response.json()
+        assert data["security"] is None
+        assert data["security_grade"] is None

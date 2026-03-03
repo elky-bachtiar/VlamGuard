@@ -59,7 +59,9 @@ class TestMetadataFiltering:
         }
         metadata = extract_metadata(manifest)
         assert "annotations" not in metadata
-        assert "volumes" not in metadata
+        # Volumes are now included as metadata for security analysis
+        assert "volumes" in metadata
+        assert metadata["volumes"][0]["type"] == "emptyDir"
 
     def test_non_workload_minimal_metadata(self):
         manifest = {"kind": "ConfigMap", "metadata": {"name": "cfg", "namespace": "default"}, "data": {"key": "value"}}
@@ -115,7 +117,7 @@ class TestSchemaValidation:
             "impact_analysis": [],
             "recommendations": ["Fix it."],
             "rollback_suggestion": "kubectl rollout undo",
-            "extra_field": "should fail",
+            "unknown_extra_field": "should fail",
         }
         result = validate_ai_response(data)
         assert result is None

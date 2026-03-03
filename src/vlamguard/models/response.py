@@ -14,6 +14,16 @@ class RiskLevel(StrEnum):
     CRITICAL = "critical"
 
 
+class SecurityGrade(StrEnum):
+    """Security grade levels (A=best, F=worst)."""
+
+    A = "A"
+    B = "B"
+    C = "C"
+    D = "D"
+    F = "F"
+
+
 class PolicyCheckResult(BaseModel):
     """Result of a single policy check."""
 
@@ -43,6 +53,50 @@ class AIContext(BaseModel):
     rollback_suggestion: str
 
 
+class SecretFinding(BaseModel):
+    """A detected secret or credential in manifests."""
+
+    severity: str = Field(description="critical, high, or medium")
+    type: str = Field(description="e.g. private_key, aws_access_key, database_credential")
+    location: str = Field(description="e.g. deployment/backend → container/api → env/DATABASE_URL")
+    pattern: str = Field(description="Pattern that matched, e.g. private_key_header")
+    detection: str = Field(description="deterministic or entropy")
+    ai_context: str | None = None
+    recommendation: str | None = None
+    effort: str | None = None
+
+
+class SecretsDetectionResult(BaseModel):
+    """Aggregated result of secrets scanning."""
+
+    total_suspects: int
+    confirmed_secrets: int
+    false_positives: int
+    hard_blocks: list[SecretFinding] = Field(default_factory=list)
+    soft_risks: list[SecretFinding] = Field(default_factory=list)
+    summary: str | None = None
+
+
+class HardeningAction(BaseModel):
+    """A single hardening recommendation."""
+
+    priority: int
+    category: str = Field(description="container, network, supply_chain, or operational")
+    action: str
+    effort: str = Field(description="low, medium, or high")
+    impact: str = Field(description="low, medium, or high")
+    details: str | None = None
+    yaml_hint: str | None = None
+
+
+class SecuritySection(BaseModel):
+    """Full security assessment section."""
+
+    secrets_detection: SecretsDetectionResult | None = None
+    extended_checks: list[PolicyCheckResult] = Field(default_factory=list)
+    hardening_recommendations: list[HardeningAction] = Field(default_factory=list)
+
+
 class ExternalFinding(BaseModel):
     """Finding from an external validation tool (kube-score, KubeLinter, Polaris)."""
 
@@ -63,5 +117,7 @@ class AnalyzeResponse(BaseModel):
     policy_checks: list[PolicyCheckResult]
     external_findings: list[ExternalFinding] = Field(default_factory=list)
     polaris_score: int | None = None
+    security_grade: SecurityGrade | None = None
+    security: SecuritySection | None = None
     ai_context: AIContext | None
     metadata: dict

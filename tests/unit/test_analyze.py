@@ -1,6 +1,6 @@
 """Tests for the core analyze pipeline orchestrator."""
 
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -20,6 +20,7 @@ class TestAnalyzePipeline:
                     "replicas": 3,
                     "template": {
                         "spec": {
+                            "automountServiceAccountToken": False,
                             "securityContext": {"runAsUser": 1000, "runAsGroup": 1000},
                             "affinity": {
                                 "podAntiAffinity": {
@@ -51,7 +52,7 @@ class TestAnalyzePipeline:
         ]
 
         with patch("vlamguard.analyze.render_chart", return_value=manifests):
-            with patch("vlamguard.analyze.get_ai_context", new_callable=AsyncMock, return_value=None):
+            with patch("vlamguard.analyze.get_security_ai_context", new_callable=AsyncMock, return_value=(None, [], None)):
                 request = AnalyzeRequest(chart="./chart", values={}, environment="production")
                 response = await analyze(request)
 
@@ -84,7 +85,7 @@ class TestAnalyzePipeline:
         ]
 
         with patch("vlamguard.analyze.render_chart", return_value=manifests):
-            with patch("vlamguard.analyze.get_ai_context", new_callable=AsyncMock, return_value=None):
+            with patch("vlamguard.analyze.get_security_ai_context", new_callable=AsyncMock, return_value=(None, [], None)):
                 request = AnalyzeRequest(chart="./chart", values={}, environment="production")
                 response = await analyze(request)
 
@@ -94,7 +95,7 @@ class TestAnalyzePipeline:
 
     @pytest.mark.asyncio
     async def test_subtle_impact_warns(self):
-        """Scenario 3: replica 1 in prod, everything else ok -> soft risk 30."""
+        """Scenario 3: replica 1 in prod, everything else ok -> soft risk."""
         manifests = [
             {
                 "kind": "Deployment",
@@ -129,13 +130,14 @@ class TestAnalyzePipeline:
         ]
 
         with patch("vlamguard.analyze.render_chart", return_value=manifests):
-            with patch("vlamguard.analyze.get_ai_context", new_callable=AsyncMock, return_value=None):
+            with patch("vlamguard.analyze.get_security_ai_context", new_callable=AsyncMock, return_value=(None, [], None)):
                 request = AnalyzeRequest(chart="./chart", values={}, environment="production")
                 response = await analyze(request)
 
         assert response.blocked is False
-        assert response.risk_score == 30
-        assert response.risk_level.value == "low"
+        # 30 (replica_count) + 10 (service_account_token) = 40
+        assert response.risk_score == 40
+        assert response.risk_level.value == "medium"
 
     @pytest.mark.asyncio
     async def test_skip_ai_flag(self):
@@ -148,6 +150,7 @@ class TestAnalyzePipeline:
                     "replicas": 3,
                     "template": {
                         "spec": {
+                            "automountServiceAccountToken": False,
                             "securityContext": {"runAsUser": 1000, "runAsGroup": 1000},
                             "affinity": {
                                 "podAntiAffinity": {
@@ -178,9 +181,9 @@ class TestAnalyzePipeline:
             }
         ]
 
-        mock_ai = AsyncMock(return_value=None)
+        mock_ai = AsyncMock(return_value=(None, [], None))
         with patch("vlamguard.analyze.render_chart", return_value=manifests):
-            with patch("vlamguard.analyze.get_ai_context", mock_ai):
+            with patch("vlamguard.analyze.get_security_ai_context", mock_ai):
                 request = AnalyzeRequest(
                     chart="./chart", values={}, environment="production", skip_ai=True
                 )
@@ -221,11 +224,9 @@ class TestAnalyzePipeline:
             }
         ]
 
-        from unittest.mock import MagicMock
-
         mock_ext = MagicMock(return_value=([], None))
         with patch("vlamguard.analyze.render_chart", return_value=manifests):
-            with patch("vlamguard.analyze.get_ai_context", new_callable=AsyncMock, return_value=None):
+            with patch("vlamguard.analyze.get_security_ai_context", new_callable=AsyncMock, return_value=(None, [], None)):
                 with patch("vlamguard.analyze.run_all_external_tools", mock_ext):
                     request = AnalyzeRequest(
                         chart="./chart", values={}, environment="production",
@@ -277,7 +278,7 @@ class TestAnalyzePipeline:
         ]
 
         with patch("vlamguard.analyze.render_chart", return_value=manifests):
-            with patch("vlamguard.analyze.get_ai_context", new_callable=AsyncMock, return_value=None):
+            with patch("vlamguard.analyze.get_security_ai_context", new_callable=AsyncMock, return_value=(None, [], None)):
                 with patch("vlamguard.analyze.run_all_external_tools", return_value=(ext_findings, 85)):
                     request = AnalyzeRequest(
                         chart="./chart", values={}, environment="production", skip_ai=True,

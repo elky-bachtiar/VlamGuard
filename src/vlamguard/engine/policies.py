@@ -848,3 +848,242 @@ def check_env_var_duplicates(manifest: dict) -> PolicyCheckResult:
         severity="medium",
         message="No duplicate environment variable keys.",
     )
+
+
+# ---------------------------------------------------------------------------
+# Extended security checks (Phase 5 — Security Scan)
+# ---------------------------------------------------------------------------
+
+_DANGEROUS_HOST_PATHS = {"/var/run/docker.sock", "/proc", "/sys", "/etc"}
+_DANGEROUS_CAPABILITIES = {"SYS_ADMIN", "NET_ADMIN", "ALL"}
+
+
+@policy_check(
+    check_id="host_namespace",
+    name="Host Namespace",
+    severity="critical",
+    category="security",
+    risk_points=30,
+    prod_behavior="hard_block",
+    other_behavior="soft_risk",
+)
+def check_host_namespace(manifest: dict) -> PolicyCheckResult:
+    """Fail if hostNetwork, hostPID, or hostIPC is true in pod spec."""
+    if manifest.get("kind") not in _WORKLOAD_KINDS:
+        return PolicyCheckResult(
+            check_id="host_namespace",
+            name="Host Namespace",
+            passed=True,
+            severity="critical",
+            message="Not a workload resource, skipped.",
+        )
+
+    pod_spec = manifest.get("spec", {}).get("template", {}).get("spec", {})
+    violations: list[str] = []
+
+    for ns_field in ("hostNetwork", "hostPID", "hostIPC"):
+        if pod_spec.get(ns_field) is True:
+            violations.append(f"{ns_field} is enabled")
+
+    if violations:
+        return PolicyCheckResult(
+            check_id="host_namespace",
+            name="Host Namespace",
+            passed=False,
+            severity="critical",
+            message="; ".join(violations),
+            details={"violations": violations},
+        )
+
+    return PolicyCheckResult(
+        check_id="host_namespace",
+        name="Host Namespace",
+        passed=True,
+        severity="critical",
+        message="No host namespace sharing.",
+    )
+
+
+@policy_check(
+    check_id="dangerous_volume_mounts",
+    name="Dangerous Volume Mounts",
+    severity="critical",
+    category="security",
+    risk_points=30,
+    prod_behavior="hard_block",
+    other_behavior="soft_risk",
+)
+def check_dangerous_volume_mounts(manifest: dict) -> PolicyCheckResult:
+    """Fail if hostPath volumes mount dangerous paths."""
+    if manifest.get("kind") not in _WORKLOAD_KINDS:
+        return PolicyCheckResult(
+            check_id="dangerous_volume_mounts",
+            name="Dangerous Volume Mounts",
+            passed=True,
+            severity="critical",
+            message="Not a workload resource, skipped.",
+        )
+
+    pod_spec = manifest.get("spec", {}).get("template", {}).get("spec", {})
+    volumes = pod_spec.get("volumes", [])
+    violations: list[str] = []
+
+    for volume in volumes:
+        host_path = volume.get("hostPath", {}).get("path", "")
+        vol_name = volume.get("name", "unknown")
+        for dangerous in _DANGEROUS_HOST_PATHS:
+            if host_path == dangerous or host_path.startswith(dangerous + "/"):
+                violations.append(f"Volume '{vol_name}' mounts dangerous hostPath '{host_path}'")
+
+    if violations:
+        return PolicyCheckResult(
+            check_id="dangerous_volume_mounts",
+            name="Dangerous Volume Mounts",
+            passed=False,
+            severity="critical",
+            message="; ".join(violations),
+            details={"violations": violations},
+        )
+
+    return PolicyCheckResult(
+        check_id="dangerous_volume_mounts",
+        name="Dangerous Volume Mounts",
+        passed=True,
+        severity="critical",
+        message="No dangerous hostPath volume mounts.",
+    )
+
+
+@policy_check(
+    check_id="excessive_capabilities",
+    name="Excessive Capabilities",
+    severity="high",
+    category="security",
+    risk_points=20,
+    prod_behavior="soft_risk",
+    other_behavior="off",
+)
+def check_excessive_capabilities(manifest: dict) -> PolicyCheckResult:
+    """Fail if SYS_ADMIN, NET_ADMIN, or ALL in capabilities.add."""
+    containers = _get_containers(manifest)
+    if not containers:
+        return PolicyCheckResult(
+            check_id="excessive_capabilities",
+            name="Excessive Capabilities",
+            passed=True,
+            severity="high",
+            message="Not a workload resource, skipped.",
+        )
+
+    violations: list[str] = []
+    for container in containers:
+        name = container.get("name", "unknown")
+        caps = (
+            container.get("securityContext", {})
+            .get("capabilities", {})
+            .get("add", [])
+        )
+        dangerous = [c for c in caps if c in _DANGEROUS_CAPABILITIES]
+        if dangerous:
+            violations.append(f"Container '{name}' adds dangerous capabilities: {', '.join(dangerous)}")
+
+    if violations:
+        return PolicyCheckResult(
+            check_id="excessive_capabilities",
+            name="Excessive Capabilities",
+            passed=False,
+            severity="high",
+            message="; ".join(violations),
+            details={"violations": violations},
+        )
+
+    return PolicyCheckResult(
+        check_id="excessive_capabilities",
+        name="Excessive Capabilities",
+        passed=True,
+        severity="high",
+        message="No excessive capabilities granted.",
+    )
+
+
+@policy_check(
+    check_id="service_account_token",
+    name="Service Account Token",
+    severity="medium",
+    category="security",
+    risk_points=10,
+    prod_behavior="soft_risk",
+    other_behavior="off",
+)
+def check_service_account_token(manifest: dict) -> PolicyCheckResult:
+    """Fail if automountServiceAccountToken is not explicitly false."""
+    if manifest.get("kind") not in _WORKLOAD_KINDS:
+        return PolicyCheckResult(
+            check_id="service_account_token",
+            name="Service Account Token",
+            passed=True,
+            severity="medium",
+            message="Not a workload resource, skipped.",
+        )
+
+    pod_spec = manifest.get("spec", {}).get("template", {}).get("spec", {})
+    automount = pod_spec.get("automountServiceAccountToken")
+
+    if automount is not False:
+        return PolicyCheckResult(
+            check_id="service_account_token",
+            name="Service Account Token",
+            passed=False,
+            severity="medium",
+            message="automountServiceAccountToken is not explicitly set to false.",
+            details={"automountServiceAccountToken": automount},
+        )
+
+    return PolicyCheckResult(
+        check_id="service_account_token",
+        name="Service Account Token",
+        passed=True,
+        severity="medium",
+        message="Service account token auto-mount is disabled.",
+    )
+
+
+@policy_check(
+    check_id="exposed_services",
+    name="Exposed Services",
+    severity="medium",
+    category="security",
+    risk_points=15,
+    prod_behavior="soft_risk",
+    other_behavior="off",
+)
+def check_exposed_services(manifest: dict) -> PolicyCheckResult:
+    """Fail if Service type is NodePort or LoadBalancer."""
+    if manifest.get("kind") != "Service":
+        return PolicyCheckResult(
+            check_id="exposed_services",
+            name="Exposed Services",
+            passed=True,
+            severity="medium",
+            message="Not a Service, skipped.",
+        )
+
+    svc_type = manifest.get("spec", {}).get("type", "ClusterIP")
+
+    if svc_type in ("NodePort", "LoadBalancer"):
+        return PolicyCheckResult(
+            check_id="exposed_services",
+            name="Exposed Services",
+            passed=False,
+            severity="medium",
+            message=f"Service uses {svc_type}, which exposes it externally.",
+            details={"type": svc_type},
+        )
+
+    return PolicyCheckResult(
+        check_id="exposed_services",
+        name="Exposed Services",
+        passed=True,
+        severity="medium",
+        message=f"Service type is {svc_type} (internal).",
+    )
