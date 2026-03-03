@@ -1,0 +1,4 @@
+apiVersion: v2
+name: best-practices-fail
+version: 0.1.0
+description: "VlamGuard Demo — Legacy app with multiple best-practice violations"

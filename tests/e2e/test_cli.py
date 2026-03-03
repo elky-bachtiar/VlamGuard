@@ -5,6 +5,9 @@ import sys
 from pathlib import Path
 
 FIXTURES = Path(__file__).parent.parent / "fixtures"
+REPO_ROOT = Path(__file__).parent.parent.parent
+CHARTS = REPO_ROOT / "charts"
+DEMO_CHARTS = REPO_ROOT / "demo" / "charts"
 
 
 class TestCLIHelp:
@@ -84,6 +87,15 @@ class TestCLIWithFixtures:
         assert result.returncode == 0
         assert "VlamGuard Risk Report" in result.stdout
 
+    def test_hardened_fixture_passes(self):
+        result = self._run_cli(
+            "check",
+            "--manifests", str(FIXTURES / "hardened.yaml"),
+            "--env", "production",
+            "--skip-ai",
+        )
+        assert result.returncode == 0
+
     def test_dev_env_is_lenient(self):
         """In dev, critical checks become soft risks, not hard blocks.
 
@@ -102,3 +114,79 @@ class TestCLIWithFixtures:
         assert result.returncode == 1
         # Verify it's a soft-risk block, not a hard block
         assert "Hard Blocks" not in result.stdout
+
+
+class TestCLIWithCharts:
+    """E2E tests using Helm charts (--chart flag)."""
+
+    def _run_cli(self, *args: str) -> subprocess.CompletedProcess:
+        return subprocess.run(
+            [sys.executable, "-m", "vlamguard.cli", *args],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+
+    def test_vlamguard_own_chart_passes_all_checks(self):
+        """VlamGuard's own Helm chart must pass all policy checks (dog-fooding)."""
+        result = self._run_cli(
+            "check",
+            "--chart", str(CHARTS / "vlamguard"),
+            "--env", "production",
+            "--skip-ai",
+        )
+        assert result.returncode == 0
+        assert "PASSED" in result.stdout
+
+    def test_vlamguard_own_chart_json_has_zero_score(self):
+        """VlamGuard's own chart should have risk score 0."""
+        result = self._run_cli(
+            "check",
+            "--chart", str(CHARTS / "vlamguard"),
+            "--env", "production",
+            "--skip-ai",
+            "--output", "json",
+        )
+        assert result.returncode == 0
+        import json
+        data = json.loads(result.stdout)
+        assert data["risk_score"] == 0
+        assert data["blocked"] is False
+
+    def test_demo_hardened_chart_passes(self):
+        result = self._run_cli(
+            "check",
+            "--chart", str(DEMO_CHARTS / "hardened"),
+            "--env", "production",
+            "--skip-ai",
+        )
+        assert result.returncode == 0
+
+    def test_demo_best_practices_fail_blocks(self):
+        result = self._run_cli(
+            "check",
+            "--chart", str(DEMO_CHARTS / "best-practices-fail"),
+            "--env", "production",
+            "--skip-ai",
+        )
+        assert result.returncode == 1
+
+    def test_demo_evident_risk_chart_blocks(self):
+        result = self._run_cli(
+            "check",
+            "--chart", str(DEMO_CHARTS / "evident-risk"),
+            "--env", "production",
+            "--skip-ai",
+        )
+        assert result.returncode == 1
+
+    def test_demo_clean_deploy_chart_blocks_in_production(self):
+        """The original clean-deploy demo lacks newer hardening checks
+        (readOnlyRootFilesystem, runAsUser/Group) so it blocks in production."""
+        result = self._run_cli(
+            "check",
+            "--chart", str(DEMO_CHARTS / "clean-deploy"),
+            "--env", "production",
+            "--skip-ai",
+        )
+        assert result.returncode == 1

@@ -1,0 +1,4 @@
+apiVersion: v2
+name: hardened
+version: 0.1.0
+description: "VlamGuard Demo — Fully hardened deployment (passes all 17 checks)"
