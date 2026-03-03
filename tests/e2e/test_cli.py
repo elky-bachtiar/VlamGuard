@@ -244,9 +244,9 @@ class TestSecurityScanCLI:
             "--env", "production",
             "--skip-ai",
         )
-        # Chart has SYS_ADMIN + exposed services + no automount=false (45 pts)
-        # Not blocked (below 60 threshold) but has security issues
-        assert result.returncode == 0
+        # Chart has hardcoded secrets (database_url, generic_password_env) →
+        # production secrets cause hard block (score=100, blocked=True)
+        assert result.returncode == 1
 
     def test_security_scan_showcase_json(self):
         result = self._run_cli(

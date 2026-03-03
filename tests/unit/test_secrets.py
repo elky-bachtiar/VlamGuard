@@ -896,6 +896,125 @@ class TestScanSecrets:
         types = {f.type for f in result.hard_blocks}
         assert "database_url" in types
 
+    def test_envfrom_configmap_ref_scanned(self):
+        """envFrom configMapRef should cross-reference ConfigMap data for secrets."""
+        manifests = [
+            {
+                "kind": "ConfigMap",
+                "metadata": {"name": "app-config"},
+                "data": {
+                    "DATABASE_URL": "postgresql://admin:secret@host/db",
+                },
+            },
+            {
+                "kind": "Deployment",
+                "metadata": {"name": "backend"},
+                "spec": {
+                    "template": {
+                        "spec": {
+                            "containers": [
+                                {
+                                    "name": "api",
+                                    "envFrom": [
+                                        {"configMapRef": {"name": "app-config"}}
+                                    ],
+                                }
+                            ]
+                        }
+                    }
+                },
+            },
+        ]
+        result = scan_secrets(manifests, {}, "production")
+        assert result.confirmed_secrets > 0
+        # Check the location includes envFrom reference
+        locations = [f.location for f in result.hard_blocks]
+        assert any("envFrom/configMapRef:app-config" in loc for loc in locations)
+
+    def test_envfrom_secret_ref_not_flagged(self):
+        """envFrom with secretRef should not be flagged (Kubernetes Secret refs are OK)."""
+        manifests = [
+            {
+                "kind": "Deployment",
+                "metadata": {"name": "backend"},
+                "spec": {
+                    "template": {
+                        "spec": {
+                            "containers": [
+                                {
+                                    "name": "api",
+                                    "envFrom": [
+                                        {"secretRef": {"name": "my-secret"}}
+                                    ],
+                                }
+                            ]
+                        }
+                    }
+                },
+            },
+        ]
+        result = scan_secrets(manifests, {}, "production")
+        assert result.confirmed_secrets == 0
+
+    def test_aws_secret_key_env_var_detected(self):
+        """AWS_SECRET_ACCESS_KEY=<40 chars> should be detected as hard pattern."""
+        manifests = [
+            self._deployment_with_env(
+                [{"name": "AWS_SECRET_ACCESS_KEY", "value": "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"}]
+            )
+        ]
+        result = scan_secrets(manifests, {}, "production")
+        assert result.confirmed_secrets > 0
+        types = {f.type for f in result.hard_blocks}
+        assert "aws_secret_key" in types
+
+    def test_base64_in_configmap_is_soft_risk(self):
+        """Base64-encoded values in ConfigMap data should be flagged as soft risk."""
+        manifests = [
+            {
+                "kind": "ConfigMap",
+                "metadata": {"name": "app-config"},
+                "data": {
+                    # base64 of "this-is-a-hidden-value-1234"
+                    "cert_data": "dGhpcy1pcy1hLWhpZGRlbi12YWx1ZS0xMjM0",
+                },
+            }
+        ]
+        result = scan_secrets(manifests, {}, "production")
+        assert len(result.soft_risks) > 0
+        types = {f.type for f in result.soft_risks}
+        assert "base64_in_configmap" in types
+
+    def test_short_base64_not_flagged(self):
+        """Short base64 strings (< 20 chars) should not be flagged."""
+        manifests = [
+            {
+                "kind": "ConfigMap",
+                "metadata": {"name": "app-config"},
+                "data": {
+                    "short_val": "aGVsbG8=",  # base64 of "hello" — only 8 chars
+                },
+            }
+        ]
+        result = scan_secrets(manifests, {}, "production")
+        base64_findings = [f for f in result.soft_risks if f.type == "base64_in_configmap"]
+        assert len(base64_findings) == 0
+
+    def test_non_base64_string_not_flagged(self):
+        """Normal strings that aren't valid base64 should not be flagged."""
+        manifests = [
+            {
+                "kind": "ConfigMap",
+                "metadata": {"name": "app-config"},
+                "data": {
+                    "description": "This is a normal configuration value for the app",
+                },
+            }
+        ]
+        result = scan_secrets(manifests, {}, "production")
+        base64_findings = [f for f in result.soft_risks if f.type == "base64_in_configmap"]
+        assert len(base64_findings) == 0
+
     def test_annotation_with_secret_detected(self):
         manifests = [
             {

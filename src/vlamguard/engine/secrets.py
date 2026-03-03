@@ -5,6 +5,7 @@ and Shannon entropy analysis. Environment-aware: production = hard block,
 dev/staging = soft risk.
 """
 
+import base64
 import math
 import re
 
@@ -16,6 +17,9 @@ HARD_PATTERNS: dict[str, re.Pattern[str]] = {
     "github_token": re.compile(r"(ghp_|gho_|ghs_|github_pat_)[A-Za-z0-9_]+"),
     "database_url": re.compile(r"(postgresql|mysql|mongodb)://[^:]+:[^@]+@"),
     "generic_password_env": re.compile(r"(?i)(PASSWORD|SECRET|TOKEN|API_KEY)\s*=\s*\S+"),
+    "aws_secret_key": re.compile(
+        r"(?i)(aws[_-]?secret[_-]?(?:access[_-]?)?key)\s*=\s*[A-Za-z0-9/+=]{40}"
+    ),
 }
 
 SOFT_PATTERNS: dict[str, re.Pattern[str]] = {
@@ -24,6 +28,7 @@ SOFT_PATTERNS: dict[str, re.Pattern[str]] = {
 
 _WORKLOAD_KINDS = {"Deployment", "StatefulSet", "DaemonSet", "Job", "CronJob", "ReplicaSet"}
 _ENTROPY_THRESHOLD = 4.5
+_BASE64_RE = re.compile(r"^[A-Za-z0-9+/]{20,}={0,2}$")
 
 
 def _shannon_entropy(s: str) -> float:
@@ -127,6 +132,50 @@ def _extract_configmap_data(manifest: dict) -> list[tuple[str, str, str]]:
     return results
 
 
+def _extract_env_from_refs(
+    manifests: list[dict],
+) -> list[tuple[str, str, str]]:
+    """Extract ConfigMap data referenced via envFrom configMapRef in workloads.
+
+    Cross-references configMapRef names with ConfigMap manifests in the scan
+    and produces entries with enhanced location strings.
+    """
+    # Build a lookup of ConfigMap name → data entries
+    configmaps: dict[str, dict[str, str]] = {}
+    for manifest in manifests:
+        if manifest.get("kind") == "ConfigMap":
+            cm_name = manifest.get("metadata", {}).get("name", "unknown")
+            cm_data = manifest.get("data", {})
+            configmaps[cm_name] = {k: str(v) for k, v in cm_data.items()}
+
+    results: list[tuple[str, str, str]] = []
+    for manifest in manifests:
+        kind = manifest.get("kind", "Unknown")
+        if kind not in _WORKLOAD_KINDS:
+            continue
+
+        name = manifest.get("metadata", {}).get("name", "unknown")
+        pod_spec = manifest.get("spec", {}).get("template", {}).get("spec", {})
+        all_containers = pod_spec.get("containers", []) + pod_spec.get("initContainers", [])
+
+        for container in all_containers:
+            c_name = container.get("name", "unknown")
+            for env_from in container.get("envFrom", []):
+                cm_ref = env_from.get("configMapRef")
+                if not cm_ref:
+                    continue
+                cm_name = cm_ref.get("name", "unknown")
+                cm_data = configmaps.get(cm_name, {})
+                for data_key, data_value in cm_data.items():
+                    location = (
+                        f"{kind}/{name} → container/{c_name} → "
+                        f"envFrom/configMapRef:{cm_name} → data/{data_key}"
+                    )
+                    results.append((data_key, data_value, location))
+
+    return results
+
+
 def _extract_annotations(manifest: dict) -> list[tuple[str, str, str]]:
     """Extract annotations that may contain secrets."""
     results: list[tuple[str, str, str]] = []
@@ -165,6 +214,9 @@ def scan_secrets(
         all_entries.extend(_extract_configmap_data(manifest))
         all_entries.extend(_extract_annotations(manifest))
 
+    # Cross-reference envFrom configMapRef with ConfigMap data
+    all_entries.extend(_extract_env_from_refs(manifests))
+
     # Scan values dict as flat key=value
     _flatten_values(values, "values", all_entries)
 
@@ -199,6 +251,22 @@ def scan_secrets(
                         detection="entropy",
                     )
                 )
+
+        # Base64 detection for ConfigMap data values
+        if "ConfigMap/" in location and _BASE64_RE.match(value):
+            try:
+                base64.b64decode(value, validate=True)
+                soft_risks.append(
+                    SecretFinding(
+                        severity="medium",
+                        type="base64_in_configmap",
+                        location=location,
+                        pattern="base64_check",
+                        detection="deterministic",
+                    )
+                )
+            except Exception:
+                pass
 
     confirmed = len(hard_blocks)
     total = len(hard_blocks) + len(soft_risks)

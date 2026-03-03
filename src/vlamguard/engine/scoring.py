@@ -1,9 +1,12 @@
 """Risk scoring and gating logic."""
 
+from __future__ import annotations
+
 from dataclasses import dataclass
 
 from vlamguard.engine.environment import CheckBehavior, get_check_behavior
-from vlamguard.models.response import PolicyCheckResult, RiskLevel
+from vlamguard.engine.secrets import HARD_PATTERNS
+from vlamguard.models.response import PolicyCheckResult, RiskLevel, SecretsDetectionResult
 
 
 @dataclass
@@ -16,8 +19,12 @@ class RiskResult:
     hard_blocks: list[str]
 
 
-def calculate_risk(checks: list[PolicyCheckResult], environment: str) -> RiskResult:
-    """Calculate risk score from policy check results and environment."""
+def calculate_risk(
+    checks: list[PolicyCheckResult],
+    environment: str,
+    secrets_result: SecretsDetectionResult | None = None,
+) -> RiskResult:
+    """Calculate risk score from policy check results, environment, and secrets."""
     hard_blocks: list[str] = []
     soft_score = 0
 
@@ -34,6 +41,22 @@ def calculate_risk(checks: list[PolicyCheckResult], environment: str) -> RiskRes
 
             risk_points = get_risk_points()
             soft_score += risk_points.get(check.check_id, 10)
+
+    # Integrate secrets detection into scoring
+    if secrets_result is not None:
+        is_production = environment == "production"
+
+        if is_production and secrets_result.confirmed_secrets > 0:
+            for finding in secrets_result.hard_blocks:
+                hard_blocks.append(
+                    f"Secrets Detection: {finding.type} at {finding.location}"
+                )
+        elif not is_production:
+            # Non-production: hard-pattern findings that were downgraded to soft_risks add +30 each
+            hard_pattern_types = set(HARD_PATTERNS.keys())
+            for finding in secrets_result.soft_risks:
+                if finding.type in hard_pattern_types:
+                    soft_score += 30
 
     if hard_blocks:
         return RiskResult(

@@ -182,6 +182,43 @@ class TestSecurityScanPipeline:
         assert "service_account_token" in ext_ids
 
     @pytest.mark.asyncio
+    async def test_production_secret_blocks_pipeline(self):
+        """Production secrets must set blocked=True and risk_score=100."""
+        with patch("vlamguard.analyze.render_chart", return_value=_manifest_with_secret()):
+            with patch("vlamguard.analyze.get_security_ai_context", new_callable=AsyncMock, return_value=(None, [], None)):
+                request = AnalyzeRequest(
+                    chart="./chart",
+                    values={},
+                    environment="production",
+                    skip_ai=True,
+                )
+                response = await analyze(request)
+
+        assert response.blocked is True
+        assert response.risk_score == 100
+        assert any("Secrets Detection" in hb for hb in response.hard_blocks)
+
+    @pytest.mark.asyncio
+    async def test_dev_secret_adds_to_soft_score(self):
+        """Non-production secrets from hard patterns add +30 to soft score."""
+        with patch("vlamguard.analyze.render_chart", return_value=_manifest_with_secret()):
+            with patch("vlamguard.analyze.get_security_ai_context", new_callable=AsyncMock, return_value=(None, [], None)):
+                request = AnalyzeRequest(
+                    chart="./chart",
+                    values={},
+                    environment="dev",
+                    skip_ai=True,
+                )
+                response = await analyze(request)
+
+        # Should not be blocked by secrets alone in dev
+        assert response.risk_score > 0
+        # Secrets add +30 per hard-pattern finding (database_url + generic_password_env)
+        sd = response.security.secrets_detection
+        assert sd.confirmed_secrets == 0
+        assert len(sd.soft_risks) > 0
+
+    @pytest.mark.asyncio
     async def test_response_shape_with_security(self):
         with patch("vlamguard.analyze.render_chart", return_value=_clean_manifest()):
             with patch("vlamguard.analyze.get_security_ai_context", new_callable=AsyncMock, return_value=(None, [], None)):

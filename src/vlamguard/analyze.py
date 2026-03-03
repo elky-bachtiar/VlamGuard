@@ -50,8 +50,8 @@ async def analyze(request: AnalyzeRequest) -> AnalyzeResponse:
     if request.security_scan:
         secrets_result = scan_secrets(manifests, request.values, request.environment)
 
-    # Step 4: Scoring
-    risk = calculate_risk(all_results, request.environment)
+    # Step 4: Scoring (includes secrets detection results)
+    risk = calculate_risk(all_results, request.environment, secrets_result=secrets_result)
 
     # Step 5: External tools (optional)
     external_findings = []

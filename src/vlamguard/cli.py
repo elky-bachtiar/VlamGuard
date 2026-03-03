@@ -89,7 +89,7 @@ async def _analyze_manifests(
     if security_scan:
         secrets_result = scan_secrets(manifests, values or {}, environment)
 
-    risk = calculate_risk(all_results, environment)
+    risk = calculate_risk(all_results, environment, secrets_result=secrets_result)
 
     # External tools (optional)
     external_findings: list[ExternalFinding] = []
