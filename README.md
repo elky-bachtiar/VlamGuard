@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/vlamguard_logo.svg" alt="VlamGuard" width="280" />
+</p>
+
 # VlamGuard
 
 [![CI](https://github.com/elky-bachtiar/VlamGuard/actions/workflows/ci.yml/badge.svg)](https://github.com/elky-bachtiar/VlamGuard/actions/workflows/ci.yml)
@@ -293,6 +297,18 @@ bash demo/run_demo.sh
 Twelve scenarios covering clean deploys, evident risks, subtle impacts, best-practice violations, hardened deployments, self-analysis, Polaris score comparison, CRD ecosystem checks, waiver workflow, compliance mapping, AI-enhanced recommendations, and external tools + AI integration.
 
 Each scenario outputs both Rich terminal display and a persistent markdown report to `demo/reports/`.
+
+## Example Run
+
+Full production analysis of an insecure nginx deployment with all features enabled — 79 policy checks, secrets detection, external tools (kube-score, KubeLinter, Polaris), and AI-powered recommendations:
+
+**Policy checks, secrets detection, and hardening recommendations:**
+
+![VlamGuard risk report showing policy checks, secrets detection, extended security checks, and hardening recommendations](docs/example.png)
+
+**External tool findings and AI analysis:**
+
+![VlamGuard external tool findings table and AI-generated recommendations with YAML fix snippets](docs/example2.png)
 
 ## Tests
 
