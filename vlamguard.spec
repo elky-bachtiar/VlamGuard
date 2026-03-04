@@ -6,7 +6,7 @@ import sys
 block_cipher = None
 
 a = Analysis(
-    ["build/entrypoint.py"],
+    ["pyinstaller_entrypoint.py"],
     pathex=["src"],
     binaries=[],
     datas=[],
