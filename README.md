@@ -15,7 +15,6 @@ Download a pre-built binary from the [latest release](https://github.com/elky-ba
 | Platform | Binary |
 |----------|--------|
 | Linux (amd64) | `vlamguard-linux-amd64` |
-| macOS (Intel) | `vlamguard-darwin-amd64` |
 | macOS (Apple Silicon) | `vlamguard-darwin-arm64` |
 | Windows (amd64) | `vlamguard-windows-amd64.exe` |
 

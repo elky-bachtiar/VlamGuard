@@ -147,8 +147,6 @@ jobs:
         include:
           - os: ubuntu-latest
             artifact_name: vlamguard-linux-amd64
-          - os: macos-13
-            artifact_name: vlamguard-darwin-amd64
           - os: macos-14
             artifact_name: vlamguard-darwin-arm64
           - os: windows-latest
