@@ -226,3 +226,6 @@ __marimo__/
 
 
 .DS_Store
+
+# Demo generated reports
+demo/reports/*.md

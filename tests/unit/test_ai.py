@@ -11,6 +11,7 @@ from vlamguard.ai.schemas import validate_ai_response
 from vlamguard.ai.context import _get_timeout, get_ai_context, get_security_ai_context
 from vlamguard.models.response import (
     PolicyCheckResult,
+    Recommendation,
     SecretFinding,
     SecretsDetectionResult,
 )
@@ -445,6 +446,60 @@ class TestSchemaValidation:
         }
         result = validate_ai_response(data)
         assert result is None
+
+    def test_structured_recommendation_object_passes(self):
+        data = {
+            "summary": "Deployment needs hardening.",
+            "impact_analysis": [],
+            "recommendations": [
+                {
+                    "action": "Set runAsNonRoot: true",
+                    "reason": "Running as root allows container escape attacks.",
+                    "resource": "Deployment/web",
+                    "yaml_snippet": "runAsNonRoot: true",
+                },
+            ],
+            "rollback_suggestion": "kubectl rollout undo",
+        }
+        result = validate_ai_response(data)
+        assert result is not None
+        rec = result.recommendations[0]
+        assert isinstance(rec, Recommendation)
+        assert rec.action == "Set runAsNonRoot: true"
+        assert rec.reason == "Running as root allows container escape attacks."
+        assert rec.resource == "Deployment/web"
+        assert rec.yaml_snippet == "runAsNonRoot: true"
+
+    def test_mixed_recommendations_string_and_object(self):
+        data = {
+            "summary": "Mixed recommendations.",
+            "impact_analysis": [],
+            "recommendations": [
+                "Pin image tag to specific version.",
+                {"action": "Set resource limits", "resource": "Deployment/api"},
+            ],
+            "rollback_suggestion": "kubectl rollout undo",
+        }
+        result = validate_ai_response(data)
+        assert result is not None
+        assert isinstance(result.recommendations[0], str)
+        assert isinstance(result.recommendations[1], Recommendation)
+        assert result.recommendations[1].resource == "Deployment/api"
+        assert result.recommendations[1].yaml_snippet is None
+
+    def test_recommendation_object_action_only(self):
+        data = {
+            "summary": "Minimal object.",
+            "impact_analysis": [],
+            "recommendations": [{"action": "Enable readiness probe"}],
+            "rollback_suggestion": "kubectl rollout undo",
+        }
+        result = validate_ai_response(data)
+        assert result is not None
+        rec = result.recommendations[0]
+        assert isinstance(rec, Recommendation)
+        assert rec.resource is None
+        assert rec.yaml_snippet is None
 
 
 class TestGetAIContext:

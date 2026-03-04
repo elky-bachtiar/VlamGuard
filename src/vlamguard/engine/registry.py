@@ -24,6 +24,11 @@ class PolicyMeta:
     prod_behavior: str
     other_behavior: str
     fn: CheckFn
+    compliance_tags: frozenset[str] = frozenset()
+    cis_benchmark: str | None = None
+    nsa_control: str | None = None
+    description: str | None = None
+    remediation: str | None = None
 
 
 _REGISTRY: list[PolicyMeta] = []
@@ -38,6 +43,11 @@ def policy_check(
     risk_points: int,
     prod_behavior: str,
     other_behavior: str,
+    compliance_tags: frozenset[str] | None = None,
+    cis_benchmark: str | None = None,
+    nsa_control: str | None = None,
+    description: str | None = None,
+    remediation: str | None = None,
 ) -> Callable[[CheckFn], CheckFn]:
     """Decorator that registers a policy check with its metadata."""
 
@@ -52,6 +62,11 @@ def policy_check(
                 prod_behavior=prod_behavior,
                 other_behavior=other_behavior,
                 fn=fn,
+                compliance_tags=compliance_tags or frozenset(),
+                cis_benchmark=cis_benchmark,
+                nsa_control=nsa_control,
+                description=description,
+                remediation=remediation,
             )
         )
         return fn
@@ -77,3 +92,17 @@ def get_environment_matrix() -> dict[str, tuple[str, str]]:
 def get_risk_points() -> dict[str, int]:
     """Return {check_id: risk_points} from registry."""
     return {meta.check_id: meta.risk_points for meta in _REGISTRY}
+
+
+def get_compliance_info() -> dict[str, dict]:
+    """Return {check_id: {compliance_tags, cis_benchmark, nsa_control}} from registry."""
+    return {
+        meta.check_id: {
+            "compliance_tags": sorted(meta.compliance_tags),
+            "cis_benchmark": meta.cis_benchmark,
+            "nsa_control": meta.nsa_control,
+            "description": meta.description,
+            "remediation": meta.remediation,
+        }
+        for meta in _REGISTRY
+    }

@@ -2,7 +2,7 @@
 
 import jsonschema
 
-from vlamguard.models.response import AIContext, HardeningAction, ImpactItem
+from vlamguard.models.response import AIContext, HardeningAction, ImpactItem, Recommendation
 
 AI_RESPONSE_SCHEMA: dict = {
     "$schema": "http://json-schema.org/draft-07/schema#",
@@ -27,7 +27,22 @@ AI_RESPONSE_SCHEMA: dict = {
         },
         "recommendations": {
             "type": "array",
-            "items": {"type": "string"},
+            "items": {
+                "oneOf": [
+                    {"type": "string"},
+                    {
+                        "type": "object",
+                        "required": ["action"],
+                        "properties": {
+                            "action": {"type": "string", "minLength": 1},
+                            "reason": {"type": "string"},
+                            "resource": {"type": "string"},
+                            "yaml_snippet": {"type": "string"},
+                        },
+                        "additionalProperties": False,
+                    },
+                ]
+            },
             "minItems": 1,
         },
         "rollback_suggestion": {"type": "string", "minLength": 1},
@@ -73,6 +88,7 @@ AI_RESPONSE_SCHEMA: dict = {
                         "type": "string",
                         "enum": ["low", "medium", "high"],
                     },
+                    "resource": {"type": "string"},
                     "details": {"type": "string"},
                     "yaml_hint": {"type": "string"},
                 },
@@ -98,10 +114,16 @@ def validate_ai_response(data: object) -> AIContext | None:
         return None
 
     try:
+        recommendations: list[str | Recommendation] = []
+        for item in data["recommendations"]:
+            if isinstance(item, str):
+                recommendations.append(item)
+            elif isinstance(item, dict):
+                recommendations.append(Recommendation(**item))
         return AIContext(
             summary=data["summary"],
             impact_analysis=[ImpactItem(**item) for item in data["impact_analysis"]],
-            recommendations=data["recommendations"],
+            recommendations=recommendations,
             rollback_suggestion=data["rollback_suggestion"],
         )
     except (KeyError, TypeError, ValueError):
@@ -133,6 +155,7 @@ def validate_security_ai_response(data: object) -> dict | None:
                         action=item["action"],
                         effort=item["effort"],
                         impact=item["impact"],
+                        resource=item.get("resource"),
                         details=item.get("details"),
                         yaml_hint=item.get("yaml_hint"),
                     )

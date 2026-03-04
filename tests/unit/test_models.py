@@ -7,8 +7,10 @@ from vlamguard.models.request import AnalyzeRequest
 from vlamguard.models.response import (
     AIContext,
     AnalyzeResponse,
+    HardeningAction,
     ImpactItem,
     PolicyCheckResult,
+    Recommendation,
     RiskLevel,
 )
 
@@ -106,6 +108,61 @@ class TestAIContext:
         )
         assert len(ctx.impact_analysis) == 1
         assert len(ctx.recommendations) == 1
+
+
+class TestRecommendation:
+    def test_structured_recommendation(self):
+        rec = Recommendation(
+            action="Set runAsNonRoot: true",
+            reason="Running as root allows container escape attacks.",
+            resource="Deployment/web",
+            yaml_snippet="runAsNonRoot: true",
+        )
+        assert rec.action == "Set runAsNonRoot: true"
+        assert rec.reason == "Running as root allows container escape attacks."
+        assert rec.resource == "Deployment/web"
+        assert rec.yaml_snippet == "runAsNonRoot: true"
+
+    def test_recommendation_action_only(self):
+        rec = Recommendation(action="Enable readiness probe")
+        assert rec.reason is None
+        assert rec.resource is None
+        assert rec.yaml_snippet is None
+
+    def test_ai_context_with_mixed_recommendations(self):
+        ctx = AIContext(
+            summary="Mixed recs.",
+            impact_analysis=[],
+            recommendations=[
+                "Plain string recommendation.",
+                Recommendation(action="Set limits", resource="Deployment/api"),
+            ],
+            rollback_suggestion="kubectl rollout undo",
+        )
+        assert isinstance(ctx.recommendations[0], str)
+        assert isinstance(ctx.recommendations[1], Recommendation)
+
+    def test_hardening_action_with_resource(self):
+        ha = HardeningAction(
+            priority=1,
+            category="container",
+            action="Set readOnlyRootFilesystem",
+            effort="low",
+            impact="high",
+            resource="Deployment/web",
+            yaml_hint="readOnlyRootFilesystem: true",
+        )
+        assert ha.resource == "Deployment/web"
+
+    def test_hardening_action_without_resource(self):
+        ha = HardeningAction(
+            priority=1,
+            category="network",
+            action="Add NetworkPolicy",
+            effort="medium",
+            impact="high",
+        )
+        assert ha.resource is None
 
 
 class TestAnalyzeResponse:

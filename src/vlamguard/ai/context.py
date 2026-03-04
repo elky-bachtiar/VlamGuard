@@ -29,7 +29,7 @@ _SYSTEM_PROMPT = """You are VlamGuard AI, an infrastructure risk analyst. You re
 
 - "summary": 2-3 sentences about what changes and why it matters
 - "impact_analysis": array of {"severity": "low|medium|high|critical", "resource": "Kind/name", "description": "..."}
-- "recommendations": array of concrete actionable recommendations, highest priority first
+- "recommendations": array of recommendations (highest priority first). Each item is either a plain string OR an object: {"action": "what to do", "reason": "why this matters — explain the security/reliability risk", "resource": "Kind/name (e.g. Deployment/web)", "yaml_snippet": "the YAML change to apply"}. Use the object form when you can provide a concrete YAML fix. Always include "reason" to explain why the recommendation matters. The resource should match a resource from the manifests.
 - "rollback_suggestion": how to rollback if problems occur
 
 Respond ONLY with valid JSON. No markdown, no explanation outside the JSON."""
@@ -38,10 +38,10 @@ _SECURITY_SYSTEM_PROMPT = """You are VlamGuard AI, an infrastructure security an
 
 - "summary": 2-3 sentences about what changes and why it matters
 - "impact_analysis": array of {"severity": "low|medium|high|critical", "resource": "Kind/name", "description": "..."}
-- "recommendations": array of concrete actionable recommendations, highest priority first
+- "recommendations": array of recommendations (highest priority first). Each item is either a plain string OR an object: {"action": "what to do", "reason": "why this matters — explain the security/reliability risk", "resource": "Kind/name (e.g. Deployment/web)", "yaml_snippet": "the YAML change to apply"}. Use the object form when you can provide a concrete YAML fix. Always include "reason" to explain why the recommendation matters. The resource should match a resource from the manifests.
 - "rollback_suggestion": how to rollback if problems occur
 - "secrets_detection": (optional, include if secret findings are provided) {"summary": "...", "findings": [{"location": "...", "ai_context": "why this is a risk", "recommendation": "how to fix", "effort": "low|medium|high"}]}
-- "hardening_recommendations": (optional, include if security checks are provided) array of {"priority": 1, "category": "container|network|supply_chain|operational", "action": "what to do", "effort": "low|medium|high", "impact": "low|medium|high", "details": "...", "yaml_hint": "..."}
+- "hardening_recommendations": (optional, include if security checks are provided) array of {"priority": 1, "category": "container|network|supply_chain|operational", "action": "what to do", "effort": "low|medium|high", "impact": "low|medium|high", "resource": "Kind/name", "details": "...", "yaml_hint": "..."}
 
 IMPORTANT: Never include actual secret values in your response — only reference locations and types.
 Respond ONLY with valid JSON. No markdown, no explanation outside the JSON."""

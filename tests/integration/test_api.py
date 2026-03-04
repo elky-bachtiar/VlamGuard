@@ -3,14 +3,6 @@
 from unittest.mock import AsyncMock, patch
 
 import pytest
-from fastapi.testclient import TestClient
-
-from vlamguard.main import app
-
-
-@pytest.fixture
-def client():
-    return TestClient(app)
 
 
 def _mock_manifests_clean():
@@ -32,12 +24,14 @@ def _mock_manifests_clean():
                         "containers": [
                             {
                                 "name": "app",
-                                "image": "nginx:1.25.3",
+                                "image": "docker.io/library/nginx:1.25.3",
                                 "imagePullPolicy": "Always",
                                 "securityContext": {
                                     "runAsNonRoot": True,
                                     "privileged": False,
                                     "readOnlyRootFilesystem": True,
+                                    "allowPrivilegeEscalation": False,
+                                    "capabilities": {"drop": ["ALL"]},
                                 },
                                 "livenessProbe": {"httpGet": {"path": "/healthz", "port": 8080}},
                                 "readinessProbe": {"httpGet": {"path": "/ready", "port": 8080}},

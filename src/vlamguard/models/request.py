@@ -27,3 +27,7 @@ class AnalyzeRequest(BaseModel):
         default=True,
         description="Run security scan (secrets detection, extended checks, grading)",
     )
+    waivers_path: str | None = Field(
+        default=None,
+        description="Path to waivers YAML file (optional)",
+    )

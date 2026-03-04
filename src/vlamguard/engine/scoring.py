@@ -32,6 +32,14 @@ def calculate_risk(
         if check.passed:
             continue
 
+        # Waived checks are downgraded: hard_block → soft_risk
+        if getattr(check, "waived", False):
+            from vlamguard.engine.registry import get_risk_points
+
+            risk_points = get_risk_points()
+            soft_score += risk_points.get(check.check_id, 10)
+            continue
+
         behavior = get_check_behavior(check.check_id, environment)
 
         if behavior == CheckBehavior.HARD_BLOCK:

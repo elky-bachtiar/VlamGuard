@@ -1,0 +1,91 @@
+# Core policy gaps fixture — triggers hostPID, hostIPC, hostNetwork,
+# dangerous volume mounts, SYS_ADMIN capability, RBAC wildcards, default namespace
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dangerous-deploy
+  namespace: production
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: dangerous
+  template:
+    metadata:
+      labels:
+        app: dangerous
+    spec:
+      # host_pid, host_ipc, pod_security_standards (hostNetwork/hostPID/hostIPC)
+      hostPID: true
+      hostIPC: true
+      hostNetwork: true
+      containers:
+        - name: app
+          image: docker.io/library/nginx:1.25.3
+          securityContext:
+            # allow_privilege_escalation
+            allowPrivilegeEscalation: true
+            capabilities:
+              add:
+                # pod_security_standards: disallowed capability
+                - SYS_ADMIN
+              drop:
+                - ALL
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+          volumeMounts:
+            - name: docker-sock
+              mountPath: /var/run/docker.sock
+      volumes:
+        # dangerous_volume_mounts: docker socket
+        - name: docker-sock
+          hostPath:
+            path: /var/run/docker.sock
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: overly-permissive
+rules:
+  # rbac_wildcard_permissions: wildcards in verbs, resources, apiGroups
+  - apiGroups: ["*"]
+    resources: ["*"]
+    verbs: ["*"]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: default-ns-deploy
+  # default_namespace: deployed in default namespace
+  namespace: default
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: default-app
+  template:
+    metadata:
+      labels:
+        app: default-app
+    spec:
+      containers:
+        - name: app
+          image: docker.io/library/nginx:1.25.3
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi

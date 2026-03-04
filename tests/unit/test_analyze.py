@@ -30,12 +30,14 @@ class TestAnalyzePipeline:
                             "containers": [
                                 {
                                     "name": "app",
-                                    "image": "nginx:1.25.3",
+                                    "image": "docker.io/library/nginx:1.25.3",
                                     "imagePullPolicy": "Always",
                                     "securityContext": {
                                         "runAsNonRoot": True,
                                         "privileged": False,
                                         "readOnlyRootFilesystem": True,
+                                        "allowPrivilegeEscalation": False,
+                                        "capabilities": {"drop": ["ALL"]},
                                     },
                                     "livenessProbe": {"httpGet": {"path": "/healthz", "port": 8080}},
                                     "readinessProbe": {"httpGet": {"path": "/ready", "port": 8080}},
@@ -104,16 +106,19 @@ class TestAnalyzePipeline:
                     "replicas": 1,
                     "template": {
                         "spec": {
+                            "automountServiceAccountToken": False,
                             "securityContext": {"runAsUser": 1000, "runAsGroup": 1000},
                             "containers": [
                                 {
                                     "name": "app",
-                                    "image": "nginx:1.25.3",
+                                    "image": "docker.io/library/nginx:1.25.3",
                                     "imagePullPolicy": "Always",
                                     "securityContext": {
                                         "runAsNonRoot": True,
                                         "privileged": False,
                                         "readOnlyRootFilesystem": True,
+                                        "allowPrivilegeEscalation": False,
+                                        "capabilities": {"drop": ["ALL"]},
                                     },
                                     "livenessProbe": {"httpGet": {"path": "/healthz", "port": 8080}},
                                     "readinessProbe": {"httpGet": {"path": "/ready", "port": 8080}},
@@ -135,9 +140,9 @@ class TestAnalyzePipeline:
                 response = await analyze(request)
 
         assert response.blocked is False
-        # 30 (replica_count) + 10 (service_account_token) = 40
-        assert response.risk_score == 40
-        assert response.risk_level.value == "medium"
+        # 30 (replica_count) is the only failure
+        assert response.risk_score == 30
+        assert response.risk_level.value == "low"
 
     @pytest.mark.asyncio
     async def test_skip_ai_flag(self):

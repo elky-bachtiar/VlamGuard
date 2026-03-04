@@ -1,5 +1,6 @@
 """E2E tests for the VlamGuard CLI."""
 
+import json
 import subprocess
 import sys
 from pathlib import Path
@@ -8,6 +9,7 @@ FIXTURES = Path(__file__).parent.parent / "fixtures"
 REPO_ROOT = Path(__file__).parent.parent.parent
 CHARTS = REPO_ROOT / "charts"
 DEMO_CHARTS = REPO_ROOT / "demo" / "charts"
+WAIVERS_EXAMPLE = REPO_ROOT / "demo" / "waivers-example.yaml"
 
 
 class TestCLIHelp:
@@ -148,7 +150,6 @@ class TestCLIWithCharts:
             "--output", "json",
         )
         assert result.returncode == 0
-        import json
         data = json.loads(result.stdout)
         assert data["risk_score"] == 0
         assert data["blocked"] is False
@@ -231,7 +232,6 @@ class TestSecurityScanCLI:
             "--output", "json",
         )
         assert result.returncode == 0
-        import json
         data = json.loads(result.stdout)
         assert "security_grade" in data
         assert "security" in data
@@ -256,7 +256,6 @@ class TestSecurityScanCLI:
             "--skip-ai",
             "--output", "json",
         )
-        import json
         data = json.loads(result.stdout)
         assert data["security_grade"] is not None
         assert data["security"]["secrets_detection"]["confirmed_secrets"] > 0
@@ -271,7 +270,225 @@ class TestSecurityScanCLI:
             "--output", "json",
         )
         assert result.returncode == 0
-        import json
         data = json.loads(result.stdout)
         assert data["security"] is None
         assert data["security_grade"] is None
+
+
+class TestCLIWithCRDFixtures:
+    """E2E tests for CRD ecosystem fixtures (KEDA, Istio, Argo CD, cert-manager, ESO)."""
+
+    def _run_cli(self, *args: str) -> subprocess.CompletedProcess:
+        return subprocess.run(
+            [sys.executable, "-m", "vlamguard.cli", *args],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+
+    def _run_json(self, fixture: str, env: str = "production") -> dict:
+        result = self._run_cli(
+            "check",
+            "--manifests", str(FIXTURES / fixture),
+            "--env", env,
+            "--skip-ai",
+            "--output", "json",
+        )
+        return json.loads(result.stdout)
+
+    def test_keda_violations_blocked(self):
+        result = self._run_cli(
+            "check",
+            "--manifests", str(FIXTURES / "crd-keda-violations.yaml"),
+            "--env", "production",
+            "--skip-ai",
+        )
+        assert result.returncode == 1
+
+    def test_keda_violations_json_check_ids(self):
+        data = self._run_json("crd-keda-violations.yaml")
+        fails = {c["check_id"] for c in data["policy_checks"] if not c["passed"]}
+        expected = {
+            "keda_min_replica_production", "keda_fallback_required",
+            "keda_auth_ref_required", "keda_hpa_ownership_validation",
+            "keda_max_replica_bound", "keda_trigger_auth_secrets",
+            "keda_cooldown_period", "keda_polling_interval",
+            "keda_fallback_replica_range", "keda_restore_replicas_warning",
+            "keda_inline_secret_detection", "keda_initial_cooldown",
+            "keda_job_history_limits", "keda_paused_annotation",
+        }
+        assert expected.issubset(fails), f"Missing: {expected - fails}"
+
+    def test_istio_violations_blocked(self):
+        result = self._run_cli(
+            "check",
+            "--manifests", str(FIXTURES / "crd-istio-violations.yaml"),
+            "--env", "production",
+            "--skip-ai",
+        )
+        assert result.returncode == 1
+
+    def test_istio_violations_json_check_ids(self):
+        data = self._run_json("crd-istio-violations.yaml")
+        fails = {c["check_id"] for c in data["policy_checks"] if not c["passed"]}
+        expected = {
+            "istio_virtualservice_timeout", "istio_virtualservice_retries",
+            "istio_virtualservice_fault_injection_production",
+            "istio_destination_rule_tls", "istio_destination_rule_outlier_detection",
+            "istio_destination_rule_connection_pool",
+            "istio_peer_auth_strict_mtls", "istio_authz_no_allow_all",
+            "istio_gateway_tls_required", "istio_gateway_wildcard_host",
+        }
+        assert expected.issubset(fails), f"Missing: {expected - fails}"
+
+    def test_argocd_violations_blocked(self):
+        result = self._run_cli(
+            "check",
+            "--manifests", str(FIXTURES / "crd-argocd-violations.yaml"),
+            "--env", "production",
+            "--skip-ai",
+        )
+        assert result.returncode == 1
+
+    def test_certmanager_violations_blocked(self):
+        result = self._run_cli(
+            "check",
+            "--manifests", str(FIXTURES / "crd-certmanager-violations.yaml"),
+            "--env", "production",
+            "--skip-ai",
+        )
+        assert result.returncode == 1
+
+    def test_eso_violations_blocked(self):
+        result = self._run_cli(
+            "check",
+            "--manifests", str(FIXTURES / "crd-eso-violations.yaml"),
+            "--env", "production",
+            "--skip-ai",
+        )
+        assert result.returncode == 1
+
+    def test_core_gaps_violations_blocked(self):
+        result = self._run_cli(
+            "check",
+            "--manifests", str(FIXTURES / "core-gaps-violations.yaml"),
+            "--env", "production",
+            "--skip-ai",
+        )
+        assert result.returncode == 1
+
+    def test_core_gaps_json_check_ids(self):
+        data = self._run_json("core-gaps-violations.yaml")
+        fails = {c["check_id"] for c in data["policy_checks"] if not c["passed"]}
+        expected = {
+            "host_pid", "host_ipc", "host_namespace",
+            "allow_privilege_escalation", "rbac_wildcard_permissions",
+            "default_namespace", "pod_security_standards",
+            "dangerous_volume_mounts",
+        }
+        assert expected.issubset(fails), f"Missing: {expected - fails}"
+
+    def test_crd_clean_passes(self):
+        result = self._run_cli(
+            "check",
+            "--manifests", str(FIXTURES / "crd-clean.yaml"),
+            "--env", "production",
+            "--skip-ai",
+        )
+        assert result.returncode == 0
+
+    def test_crd_clean_json_zero_score(self):
+        data = self._run_json("crd-clean.yaml")
+        assert data["risk_score"] == 0
+        assert data["blocked"] is False
+        fails = [c["check_id"] for c in data["policy_checks"] if not c["passed"]]
+        assert fails == [], f"Unexpected failures: {fails}"
+
+
+class TestCLIWaivers:
+    """E2E tests for the waiver workflow."""
+
+    def _run_cli(self, *args: str) -> subprocess.CompletedProcess:
+        return subprocess.run(
+            [sys.executable, "-m", "vlamguard.cli", *args],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+
+    def test_waivers_reduce_hard_blocks(self):
+        """Waivers should apply and reduce hard_blocks count."""
+        # Without waivers
+        baseline = self._run_cli(
+            "check",
+            "--manifests", str(FIXTURES / "evident-risk.yaml"),
+            "--env", "production",
+            "--skip-ai",
+            "--output", "json",
+        )
+        baseline_data = json.loads(baseline.stdout)
+
+        # With waivers
+        waived = self._run_cli(
+            "check",
+            "--manifests", str(FIXTURES / "evident-risk.yaml"),
+            "--env", "production",
+            "--skip-ai",
+            "--waivers", str(WAIVERS_EXAMPLE),
+            "--output", "json",
+        )
+        waived_data = json.loads(waived.stdout)
+
+        assert len(waived_data["waivers_applied"]) == 2
+        assert len(waived_data["hard_blocks"]) <= len(baseline_data["hard_blocks"])
+
+    def test_nonexistent_waiver_file_no_crash(self):
+        """A nonexistent waiver file should not crash — waivers silently return empty."""
+        result = self._run_cli(
+            "check",
+            "--manifests", str(FIXTURES / "clean-deploy.yaml"),
+            "--env", "production",
+            "--skip-ai",
+            "--waivers", "/tmp/nonexistent-waivers.yaml",
+        )
+        assert result.returncode == 0
+
+
+class TestCLICompliance:
+    """E2E tests for the compliance command."""
+
+    def _run_cli(self, *args: str) -> subprocess.CompletedProcess:
+        return subprocess.run(
+            [sys.executable, "-m", "vlamguard.cli", *args],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+
+    def test_compliance_terminal_output(self):
+        result = self._run_cli("compliance")
+        assert result.returncode == 0
+        assert "checks registered" in result.stdout
+
+    def test_compliance_json_output(self):
+        result = self._run_cli("compliance", "--output", "json")
+        assert result.returncode == 0
+        data = json.loads(result.stdout)
+        assert isinstance(data, list)
+        assert len(data) > 50  # At least 50 checks registered
+        # All entries have required fields
+        for entry in data:
+            assert "check_id" in entry
+            assert "severity" in entry
+
+    def test_compliance_cis_filter(self):
+        result = self._run_cli("compliance", "--framework", "CIS", "--output", "json")
+        assert result.returncode == 0
+        data = json.loads(result.stdout)
+        assert len(data) > 0
+        # All returned checks should have a CIS tag
+        for entry in data:
+            tags = entry.get("compliance_tags", [])
+            assert any("CIS" in tag for tag in tags), (
+                f"Check {entry['check_id']} has no CIS tag: {tags}"
+            )

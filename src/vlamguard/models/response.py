@@ -34,6 +34,11 @@ class PolicyCheckResult(BaseModel):
     message: str
     details: dict | None = None
     category: str | None = Field(default=None)
+    compliance_tags: list[str] = Field(default_factory=list)
+    cis_benchmark: str | None = None
+    nsa_control: str | None = None
+    waived: bool = False
+    waiver_reason: str | None = None
 
 
 class ImpactItem(BaseModel):
@@ -44,12 +49,21 @@ class ImpactItem(BaseModel):
     description: str
 
 
+class Recommendation(BaseModel):
+    """A single actionable recommendation with optional file change hint."""
+
+    action: str
+    reason: str | None = None  # AI explanation of why this recommendation matters
+    resource: str | None = None  # e.g. "Deployment/web"
+    yaml_snippet: str | None = None
+
+
 class AIContext(BaseModel):
     """AI-generated context for the risk report."""
 
     summary: str = Field(description="2-3 sentences about what changes and why it matters")
     impact_analysis: list[ImpactItem]
-    recommendations: list[str]
+    recommendations: list[str | Recommendation]
     rollback_suggestion: str
 
 
@@ -85,6 +99,7 @@ class HardeningAction(BaseModel):
     action: str
     effort: str = Field(description="low, medium, or high")
     impact: str = Field(description="low, medium, or high")
+    resource: str | None = None  # e.g. "Deployment/web"
     details: str | None = None
     yaml_hint: str | None = None
 
@@ -120,4 +135,5 @@ class AnalyzeResponse(BaseModel):
     security_grade: SecurityGrade | None = None
     security: SecuritySection | None = None
     ai_context: AIContext | None
+    waivers_applied: list[dict] = Field(default_factory=list)
     metadata: dict

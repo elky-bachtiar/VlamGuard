@@ -16,6 +16,7 @@ from vlamguard.models.response import (
     HardeningAction,
     ImpactItem,
     PolicyCheckResult,
+    Recommendation,
     RiskLevel,
     SecretFinding,
     SecurityGrade,
@@ -543,6 +544,87 @@ class TestPrintReportAIContext:
         output = buf.getvalue()
         assert "AI Analysis" in output
 
+    def test_structured_recommendation_with_resource(self):
+        """Structured Recommendation with resource must show resource label."""
+        con, buf = _console()
+        ai = AIContext(
+            summary="Structured recs.",
+            impact_analysis=[],
+            recommendations=[
+                Recommendation(action="Set runAsNonRoot: true", resource="Deployment/web"),
+            ],
+            rollback_suggestion="kubectl rollout undo",
+        )
+        response = _minimal_response(ai_context=ai)
+        print_report(response, console=con)
+        output = buf.getvalue()
+        assert "Set runAsNonRoot: true" in output
+        assert "Deployment/web" in output
+
+    def test_structured_recommendation_with_reason(self):
+        """Structured Recommendation with reason must render the reason text."""
+        con, buf = _console()
+        ai = AIContext(
+            summary="Reason recs.",
+            impact_analysis=[],
+            recommendations=[
+                Recommendation(
+                    action="Set runAsNonRoot: true",
+                    reason="Running as root allows container escape attacks.",
+                    resource="Deployment/web",
+                ),
+            ],
+            rollback_suggestion="kubectl rollout undo",
+        )
+        response = _minimal_response(ai_context=ai)
+        print_report(response, console=con)
+        output = buf.getvalue()
+        assert "Set runAsNonRoot: true" in output
+        assert "container escape" in output
+
+    def test_structured_recommendation_with_yaml_snippet(self):
+        """Structured Recommendation with yaml_snippet must render the snippet."""
+        con, buf = _console()
+        ai = AIContext(
+            summary="Snippet recs.",
+            impact_analysis=[],
+            recommendations=[
+                Recommendation(
+                    action="Set resource limits",
+                    reason="Without limits, a single pod can consume all node resources.",
+                    resource="Deployment/api",
+                    yaml_snippet="resources:\n  limits:\n    cpu: 500m",
+                ),
+            ],
+            rollback_suggestion="kubectl rollout undo",
+        )
+        response = _minimal_response(ai_context=ai)
+        print_report(response, console=con)
+        output = buf.getvalue()
+        assert "Set resource limits" in output
+        assert "Deployment/api" in output
+        assert "single pod can consume" in output
+        assert "cpu: 500m" in output
+
+    def test_mixed_recommendations_render(self):
+        """Mixed plain string and structured recommendations must all render."""
+        con, buf = _console()
+        ai = AIContext(
+            summary="Mixed.",
+            impact_analysis=[],
+            recommendations=[
+                "Pin image tag to specific version.",
+                Recommendation(action="Set runAsNonRoot", resource="Deployment/web"),
+            ],
+            rollback_suggestion="kubectl rollout undo",
+        )
+        response = _minimal_response(ai_context=ai)
+        print_report(response, console=con)
+        output = buf.getvalue()
+        assert "Pin image tag" in output
+        assert "Set runAsNonRoot" in output
+        assert "Deployment/web" in output
+
 
 # ---------------------------------------------------------------------------
 # _print_security_section — direct unit tests
@@ -693,6 +775,60 @@ class TestPrintSecuritySection:
         # Both PASS and FAIL results must appear
         assert "FAIL" in output
         assert "PASS" in output
+
+    def test_hardening_recs_with_resource_shown(self):
+        """Hardening recommendation with resource must show resource label."""
+        con, buf = _console()
+        hardening_recs = [
+            HardeningAction(
+                priority=1,
+                category="container",
+                action="Set readOnlyRootFilesystem: true",
+                effort="low",
+                impact="high",
+                resource="Deployment/web",
+            ),
+        ]
+        security = SecuritySection(
+            secrets_detection=None,
+            extended_checks=[],
+            hardening_recommendations=hardening_recs,
+        )
+        response = _minimal_response(
+            security_grade=SecurityGrade.C,
+            security=security,
+        )
+        _print_security_section(response, con)
+        output = buf.getvalue()
+        assert "Deployment/web" in output
+        assert "readOnlyRootFilesystem" in output
+
+    def test_hardening_recs_with_yaml_hint_shown(self):
+        """Hardening recommendation with yaml_hint must render the hint."""
+        con, buf = _console()
+        hardening_recs = [
+            HardeningAction(
+                priority=1,
+                category="container",
+                action="Set readOnlyRootFilesystem",
+                effort="low",
+                impact="high",
+                resource="Deployment/web",
+                yaml_hint="readOnlyRootFilesystem: true",
+            ),
+        ]
+        security = SecuritySection(
+            secrets_detection=None,
+            extended_checks=[],
+            hardening_recommendations=hardening_recs,
+        )
+        response = _minimal_response(
+            security_grade=SecurityGrade.C,
+            security=security,
+        )
+        _print_security_section(response, con)
+        output = buf.getvalue()
+        assert "readOnlyRootFilesystem: true" in output
 
     def test_secrets_summary_appears_when_set(self):
         """Secrets AI summary must appear below the findings section."""

@@ -62,6 +62,21 @@ uv run vlamguard check --chart ./demo/charts/clean-deploy --env production --ski
 uv run vlamguard check --manifests ./tests/fixtures/evident-risk.yaml --env production --skip-ai
 ```
 
+### Discover and analyze all charts in a project
+
+```bash
+# Scan current directory recursively for Helm charts
+uv run vlamguard discover . --skip-ai --skip-external
+
+# Scan a specific directory with JSON output
+uv run vlamguard discover ./infrastructure --output json
+
+# Write summary to file
+uv run vlamguard discover . --skip-ai --output markdown --output-file discovery-report.md
+```
+
+`discover` recursively finds all `Chart.yaml` files under the given root, runs risk analysis on each chart, and prints a summary table. Exits `1` if any chart is blocked, `0` otherwise. Skips `.git`, `node_modules`, `vendor`, and other non-project directories.
+
 ### Options
 
 | Flag | Default | Description |
@@ -73,8 +88,9 @@ uv run vlamguard check --manifests ./tests/fixtures/evident-risk.yaml --env prod
 | `--skip-ai` | `false` | Skip AI context generation |
 | `--skip-external` | `false` | Skip external tools (kube-score, KubeLinter, Polaris) |
 | `--no-security-scan` | `false` | Disable secrets detection + extended checks + grading |
+| `--waivers` | — | Path to waivers YAML file |
 | `--output` | `terminal` | Output format: `terminal`, `json`, `markdown` |
-| `--output-file` | — | Write report to file instead of stdout |
+| `--output-file` | — | Write report to file. With `terminal` output, writes markdown AND prints Rich terminal output (dual output) |
 
 ### Exit codes
 
@@ -95,6 +111,9 @@ uv run vlamguard check --manifests manifest.yaml --skip-ai --output json
 
 # Markdown report to file
 uv run vlamguard check --manifests manifest.yaml --skip-ai --output markdown --output-file report.md
+
+# Dual output: terminal + markdown file
+uv run vlamguard check --manifests manifest.yaml --skip-ai --output-file report.md
 ```
 
 ## External Tool Integration
@@ -110,7 +129,7 @@ VlamGuard integrates with three established Kubernetes validation tools as suppl
 ### How it works
 
 ```
-Helm render → 22 Policy Checks → Secrets Detection → Risk Scoring → External Tools → AI Context → Report
+Helm render → 79 Policy Checks → Secrets Detection → Risk Scoring → External Tools → AI Context → Report
 ```
 
 Secrets detection feeds directly into risk scoring: confirmed secrets in production trigger hard blocks (score=100), while hard-pattern matches in non-production environments add +30 to the soft risk score per finding.
@@ -124,7 +143,7 @@ External tools run after scoring and before AI analysis. Their findings appear i
 | **Finds issues** | Yes | Yes |
 | **Explains why** | Short hints | AI-generated context |
 | **Impact analysis** | No | Yes |
-| **Recommendations** | Generic | Contextual per deployment |
+| **Recommendations** | Generic | Structured: action + reason + resource + YAML snippet |
 | **Rollback suggestion** | No | Yes |
 | **Environment-aware** | No | Yes (production = strict) |
 | **Pipeline gating** | Exit code only | Hard block + soft risk + scoring |
@@ -155,7 +174,8 @@ Endpoints:
   "environment": "production",
   "skip_ai": false,
   "skip_external": false,
-  "security_scan": true
+  "security_scan": true,
+  "waivers_path": null
 }
 ```
 
@@ -199,7 +219,7 @@ helm install vlamguard charts/vlamguard/ \
   --set ai.apiKeySecret.apiKey="sk-..."
 ```
 
-The chart's default Deployment passes all 22 VlamGuard policy checks in production mode (risk score 0/100, grade A). See `charts/vlamguard/values.yaml` for all options.
+The chart's default Deployment passes all 79 VlamGuard policy checks in production mode (risk score 0/100, grade A). See `charts/vlamguard/values.yaml` for all options.
 
 ## AI Context (optional)
 
@@ -212,6 +232,8 @@ VlamGuard calls an OpenAI-compatible API for AI-powered analysis. Configure via 
 | `VLAM_AI_API_KEY` | — | Bearer token for authenticated backends |
 
 Works with Ollama, vLLM, or any OpenAI-compatible endpoint. When unavailable or `--skip-ai` is set, VlamGuard runs policy checks only.
+
+AI recommendations are structured objects with an action, reason (explaining *why* the change matters), target resource reference, and optional YAML snippet showing the exact fix. Plain string recommendations are also supported for backward compatibility.
 
 AI responses are validated with both JSON Schema and Pydantic. Invalid or incomplete AI output is silently discarded — the deterministic engine always runs.
 
@@ -226,7 +248,7 @@ The Docker image includes Helm, kube-score, KubeLinter, and Polaris pre-installe
 Published images are available from GitHub Container Registry:
 
 ```bash
-docker pull ghcr.io/elky-bachtiar/vlamguard:v1.0.0
+docker pull ghcr.io/elky-bachtiar/vlamguard:v1.0.0-alpha.1
 docker pull ghcr.io/elky-bachtiar/vlamguard:latest
 ```
 
@@ -264,12 +286,14 @@ Run all demo scenarios:
 bash demo/run_demo.sh
 ```
 
-Seven scenarios covering clean deploys, evident risks, subtle impacts, best-practice violations, hardened deployments, self-analysis, and Polaris score comparison.
+Eleven scenarios covering clean deploys, evident risks, subtle impacts, best-practice violations, hardened deployments, self-analysis, Polaris score comparison, CRD ecosystem checks, waiver workflow, compliance mapping, and AI-enhanced recommendations.
+
+Each scenario outputs both Rich terminal display and a persistent markdown report to `demo/reports/`.
 
 ## Tests
 
 ```bash
-uv run pytest              # all tests (346+)
+uv run pytest              # all tests (1116)
 uv run pytest --cov        # with coverage
 uv run pytest tests/unit/  # unit + integration only
 uv run pytest tests/e2e/   # E2E CLI tests (requires Helm)
@@ -277,30 +301,98 @@ uv run pytest tests/e2e/   # E2E CLI tests (requires Helm)
 
 ## Policy Checks
 
+VlamGuard runs 79 deterministic policy checks across eight categories. The behavior column describes production mode; non-production environments apply softer rules unless otherwise noted.
+
 | Check | Severity | Production | Other Envs |
 |-------|----------|-----------|------------|
+| **Core Security** | | | |
 | Image tag `:latest` or missing | critical | hard block | soft risk |
 | Privileged container / no `runAsNonRoot` | critical | hard block | soft risk |
 | Cluster-wide RBAC (`ClusterRoleBinding`) | critical | hard block | hard block |
 | Read-only root filesystem | critical | hard block | soft risk |
 | Non-root user and group (`runAsUser`/`runAsGroup` > 0) | critical | hard block | soft risk |
+| Host namespace sharing | critical | hard block | soft risk |
+| Dangerous volume mounts | critical | hard block | soft risk |
+| Excessive Linux capabilities | high | soft risk | off |
+| Service account token auto-mount | medium | soft risk | off |
+| Exposed services (NodePort/LoadBalancer) | medium | soft risk | off |
+| Allow privilege escalation | critical | hard block | soft risk |
+| Host PID namespace sharing | critical | hard block | soft risk |
+| Host IPC namespace sharing | critical | hard block | soft risk |
+| Pod Security Standards | critical | hard block | soft risk |
+| Drop all capabilities | high | soft risk | off |
+| Ingress TLS | high | soft risk | off |
+| Host port restriction | medium | soft risk | off |
+| RBAC wildcard permissions | high | soft risk | soft risk |
+| Automount service account token | medium | soft risk | off |
+| **Reliability** | | | |
 | Missing resource requests/limits | high | soft risk | off |
 | Single replica deployment | high | soft risk | off |
 | Missing liveness/readiness probes | high | soft risk | off |
 | Deployment strategy (must be `RollingUpdate`) | high | soft risk | off |
 | Pod disruption budget | high | soft risk | off |
 | Pod anti-affinity (when replicas > 1) | high | soft risk | off |
+| HPA target reference | medium | soft risk | off |
+| **Best Practice** | | | |
 | Image pull policy (must be `Always`) | medium | soft risk | off |
 | Service type `NodePort` | medium | soft risk | off |
 | NetworkPolicy validation | medium | soft risk | off |
 | CronJob missing `startingDeadlineSeconds` | medium | soft risk | off |
 | Deprecated API versions | medium | soft risk | soft risk |
 | Duplicate environment variables | medium | soft risk | soft risk |
-| Host namespace sharing | critical | hard block | soft risk |
-| Dangerous volume mounts | critical | hard block | soft risk |
-| Excessive Linux capabilities | high | soft risk | off |
-| Service account token auto-mount | medium | soft risk | off |
-| Exposed services (NodePort/LoadBalancer) | medium | soft risk | off |
+| Default namespace usage | medium | soft risk | soft risk |
+| Container port name convention | low | soft risk | off |
+| Resource quota | medium | soft risk | off |
+| **Supply Chain** | | | |
+| Image registry allowlist | high | soft risk | soft risk |
+| **KEDA** | | | |
+| Min replica count in production | high | soft risk | off |
+| Fallback replica configuration required | high | soft risk | off |
+| Authentication reference required | high | soft risk | off |
+| HPA ownership validation | high | soft risk | off |
+| Max replica bound | medium | soft risk | off |
+| Trigger auth secrets | high | soft risk | off |
+| Cooldown period | medium | soft risk | off |
+| Polling interval | low | soft risk | off |
+| Fallback replica range | medium | soft risk | off |
+| Restore replicas on scale-down | medium | soft risk | off |
+| Inline secret detection | critical | hard block | soft risk |
+| Initial cooldown | low | soft risk | off |
+| Job history limits | medium | soft risk | off |
+| Paused annotation | medium | soft risk | soft risk |
+| **Argo CD** | | | |
+| Auto-sync with prune enabled | high | soft risk | soft risk |
+| Sync retry configured | medium | soft risk | off |
+| Destination not in-cluster | high | soft risk | soft risk |
+| Project not default | medium | soft risk | soft risk |
+| Source target revision pinned | high | soft risk | soft risk |
+| Project wildcard destination | critical | hard block | soft risk |
+| Project wildcard source | high | soft risk | soft risk |
+| Project cluster resource access | high | soft risk | soft risk |
+| **Istio** | | | |
+| VirtualService timeout configured | high | soft risk | off |
+| VirtualService retries configured | medium | soft risk | off |
+| Fault injection in production | high | soft risk | off |
+| DestinationRule TLS mode | critical | hard block | soft risk |
+| DestinationRule outlier detection | medium | soft risk | off |
+| DestinationRule connection pool | medium | soft risk | off |
+| PeerAuthentication strict mTLS | critical | hard block | soft risk |
+| AuthorizationPolicy no allow-all | high | soft risk | soft risk |
+| Gateway TLS required | critical | hard block | soft risk |
+| Gateway wildcard host | high | soft risk | soft risk |
+| **cert-manager** | | | |
+| Certificate duration | medium | soft risk | off |
+| Certificate renew-before window | medium | soft risk | off |
+| Certificate private key algorithm | high | soft risk | off |
+| Wildcard certificate in production | high | soft risk | off |
+| Issuer solver configured | high | soft risk | soft risk |
+| Staging issuer in production | critical | hard block | soft risk |
+| **External Secrets Operator** | | | |
+| ExternalSecret refresh interval | medium | soft risk | off |
+| ExternalSecret target creation policy | medium | soft risk | off |
+| ExternalSecret deletion policy | high | soft risk | off |
+| SecretStore provider configured | high | soft risk | soft risk |
+| ClusterSecretStore conditions | medium | soft risk | off |
 
 ## Security Scan
 
@@ -339,11 +431,30 @@ uv run vlamguard check --chart ./my-chart --skip-ai
 
 # Disable security scan
 uv run vlamguard check --chart ./my-chart --no-security-scan --skip-ai
+
+# Apply waivers
+uv run vlamguard check --chart ./my-chart --waivers ./waivers.yaml --skip-ai
+uv run vlamguard security-scan --chart ./my-chart --waivers ./waivers.yaml --skip-ai
+```
+
+### Compliance Mapping
+
+```bash
+# List all policy checks with compliance tags
+uv run vlamguard compliance
+
+# Filter by framework
+uv run vlamguard compliance --framework CIS
+uv run vlamguard compliance --framework NSA
+uv run vlamguard compliance --framework SOC2
+
+# JSON output
+uv run vlamguard compliance --output json
 ```
 
 ## Documentation
 
-- [Full documentation](docs/README.md) — pipeline architecture, all 22 policy checks, security grading, API reference
+- [Full documentation](docs/README.md) — pipeline architecture, all 79 policy checks, security grading, API reference
 - [Contributing guide](CONTRIBUTING.md) — development setup, code style, PR process
 - [Changelog](CHANGELOG.md)
 - [License](LICENSE) (Apache 2.0)

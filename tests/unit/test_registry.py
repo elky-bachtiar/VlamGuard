@@ -1,6 +1,11 @@
 """Tests for the policy registry infrastructure."""
 
 import vlamguard.engine.policies  # noqa: F401
+import vlamguard.engine.crd.keda  # noqa: F401
+import vlamguard.engine.crd.argocd  # noqa: F401
+import vlamguard.engine.crd.istio  # noqa: F401
+import vlamguard.engine.crd.certmanager  # noqa: F401
+import vlamguard.engine.crd.externalsecrets  # noqa: F401
 from vlamguard.engine.registry import (
     get_all_checks,
     get_check_fns,
@@ -31,7 +36,14 @@ class TestPolicyRegistry:
             assert points >= 0, f"{check_id} has negative risk_points: {points}"
 
     def test_categories_valid(self):
-        valid = {"security", "reliability", "best-practice"}
+        valid = {
+            "security", "reliability", "best-practice", "supply-chain",
+            "keda-reliability", "keda-security",
+            "argocd-reliability", "argocd-security",
+            "istio-reliability", "istio-security",
+            "certmgr-reliability", "certmgr-security",
+            "eso-reliability", "eso-security",
+        }
         for check in get_all_checks():
             assert check.category in valid, f"{check.check_id} has invalid category: {check.category}"
 

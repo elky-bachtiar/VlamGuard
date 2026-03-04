@@ -24,6 +24,9 @@ def _get_containers(manifest: dict) -> list[dict]:
     risk_points=25,
     prod_behavior="hard_block",
     other_behavior="soft_risk",
+    compliance_tags=frozenset({"CIS-5.4.1", "NSA-3.1", "SOC2-CC7.1"}),
+    cis_benchmark="5.4.1",
+    nsa_control="3.1",
 )
 def check_image_tag(manifest: dict) -> PolicyCheckResult:
     """Check 1: No 'latest' tag, no missing tags. Explicit version required."""
@@ -73,6 +76,9 @@ def check_image_tag(manifest: dict) -> PolicyCheckResult:
     risk_points=25,
     prod_behavior="hard_block",
     other_behavior="soft_risk",
+    compliance_tags=frozenset({"CIS-5.2.1", "CIS-5.2.6", "NSA-3.1", "SOC2-CC6.1"}),
+    cis_benchmark="5.2.1",
+    nsa_control="3.1",
 )
 def check_security_context(manifest: dict) -> PolicyCheckResult:
     """Check 2: runAsNonRoot=true, privileged=false for all containers."""
@@ -125,6 +131,9 @@ def check_security_context(manifest: dict) -> PolicyCheckResult:
     risk_points=0,
     prod_behavior="hard_block",
     other_behavior="hard_block",
+    compliance_tags=frozenset({"CIS-5.1.1", "CIS-5.1.2", "NSA-2.1", "SOC2-CC6.1", "SOC2-CC6.3"}),
+    cis_benchmark="5.1.1",
+    nsa_control="2.1",
 )
 def check_rbac_scope(manifest: dict) -> PolicyCheckResult:
     """Check 3: No ClusterRoleBindings to default ServiceAccounts."""
@@ -177,6 +186,8 @@ def check_rbac_scope(manifest: dict) -> PolicyCheckResult:
     risk_points=25,
     prod_behavior="soft_risk",
     other_behavior="off",
+    compliance_tags=frozenset({"CIS-5.4.5", "SOC2-CC7.2"}),
+    cis_benchmark="5.4.5",
 )
 def check_resource_limits(manifest: dict) -> PolicyCheckResult:
     """Check 4: CPU and memory requests + limits required."""
@@ -238,6 +249,7 @@ def check_resource_limits(manifest: dict) -> PolicyCheckResult:
     risk_points=30,
     prod_behavior="soft_risk",
     other_behavior="off",
+    compliance_tags=frozenset({"SOC2-CC7.5"}),
 )
 def check_replica_count(manifest: dict) -> PolicyCheckResult:
     """Check 5: Minimum 2 replicas (for production use)."""
@@ -284,6 +296,9 @@ def check_replica_count(manifest: dict) -> PolicyCheckResult:
     risk_points=20,
     prod_behavior="hard_block",
     other_behavior="soft_risk",
+    compliance_tags=frozenset({"CIS-5.2.8", "NSA-3.1", "SOC2-CC6.1"}),
+    cis_benchmark="5.2.8",
+    nsa_control="3.1",
 )
 def check_readonly_root_fs(manifest: dict) -> PolicyCheckResult:
     """readOnlyRootFilesystem: true on all containers."""
@@ -331,6 +346,9 @@ def check_readonly_root_fs(manifest: dict) -> PolicyCheckResult:
     risk_points=20,
     prod_behavior="hard_block",
     other_behavior="soft_risk",
+    compliance_tags=frozenset({"CIS-5.2.6", "NSA-3.1", "SOC2-CC6.1"}),
+    cis_benchmark="5.2.6",
+    nsa_control="3.1",
 )
 def check_run_as_user_group(manifest: dict) -> PolicyCheckResult:
     """runAsUser > 0 and runAsGroup > 0 (pod-level or container-level)."""
@@ -395,6 +413,7 @@ _SCALABLE_KINDS = {"Deployment", "StatefulSet", "ReplicaSet"}
     risk_points=25,
     prod_behavior="soft_risk",
     other_behavior="off",
+    compliance_tags=frozenset({"SOC2-CC7.5"}),
 )
 def check_liveness_readiness_probes(manifest: dict) -> PolicyCheckResult:
     """Both liveness and readiness probes required on all containers."""
@@ -443,6 +462,7 @@ def check_liveness_readiness_probes(manifest: dict) -> PolicyCheckResult:
     risk_points=20,
     prod_behavior="soft_risk",
     other_behavior="off",
+    compliance_tags=frozenset({"SOC2-CC7.5"}),
 )
 def check_deployment_strategy(manifest: dict) -> PolicyCheckResult:
     """Deployments must use RollingUpdate strategy (not Recreate)."""
@@ -484,6 +504,7 @@ def check_deployment_strategy(manifest: dict) -> PolicyCheckResult:
     risk_points=15,
     prod_behavior="soft_risk",
     other_behavior="off",
+    compliance_tags=frozenset({"SOC2-CC7.5"}),
 )
 def check_pod_disruption_budget(manifest: dict) -> PolicyCheckResult:
     """PDB must have minAvailable or maxUnavailable."""
@@ -527,6 +548,7 @@ def check_pod_disruption_budget(manifest: dict) -> PolicyCheckResult:
     risk_points=20,
     prod_behavior="soft_risk",
     other_behavior="off",
+    compliance_tags=frozenset({"SOC2-CC7.5"}),
 )
 def check_host_pod_anti_affinity(manifest: dict) -> PolicyCheckResult:
     """podAntiAffinity required when replicas > 1."""
@@ -597,6 +619,9 @@ _DEPRECATED_API_VERSIONS = {
     risk_points=10,
     prod_behavior="soft_risk",
     other_behavior="off",
+    compliance_tags=frozenset({"CIS-5.4.2", "NSA-3.1", "SOC2-CC7.1"}),
+    cis_benchmark="5.4.2",
+    nsa_control="3.1",
 )
 def check_image_pull_policy(manifest: dict) -> PolicyCheckResult:
     """imagePullPolicy must be Always."""
@@ -644,6 +669,8 @@ def check_image_pull_policy(manifest: dict) -> PolicyCheckResult:
     risk_points=15,
     prod_behavior="soft_risk",
     other_behavior="off",
+    compliance_tags=frozenset({"NSA-4.3", "SOC2-CC6.6"}),
+    nsa_control="4.3",
 )
 def check_service_type(manifest: dict) -> PolicyCheckResult:
     """No NodePort services."""
@@ -685,6 +712,9 @@ def check_service_type(manifest: dict) -> PolicyCheckResult:
     risk_points=10,
     prod_behavior="soft_risk",
     other_behavior="off",
+    compliance_tags=frozenset({"CIS-5.3.2", "NSA-4.1", "SOC2-CC6.6"}),
+    cis_benchmark="5.3.2",
+    nsa_control="4.1",
 )
 def check_network_policy(manifest: dict) -> PolicyCheckResult:
     """NetworkPolicy must have podSelector and ingress or egress rules."""
@@ -735,6 +765,7 @@ def check_network_policy(manifest: dict) -> PolicyCheckResult:
     risk_points=10,
     prod_behavior="soft_risk",
     other_behavior="off",
+    compliance_tags=frozenset({"SOC2-CC7.2"}),
 )
 def check_cronjob_deadline(manifest: dict) -> PolicyCheckResult:
     """CronJob must have startingDeadlineSeconds."""
@@ -774,6 +805,7 @@ def check_cronjob_deadline(manifest: dict) -> PolicyCheckResult:
     risk_points=15,
     prod_behavior="soft_risk",
     other_behavior="soft_risk",
+    compliance_tags=frozenset({"SOC2-CC7.1"}),
 )
 def check_stable_api_version(manifest: dict) -> PolicyCheckResult:
     """No deprecated apiVersions."""
@@ -806,6 +838,7 @@ def check_stable_api_version(manifest: dict) -> PolicyCheckResult:
     risk_points=10,
     prod_behavior="soft_risk",
     other_behavior="soft_risk",
+    compliance_tags=frozenset({"SOC2-CC7.2"}),
 )
 def check_env_var_duplicates(manifest: dict) -> PolicyCheckResult:
     """No duplicate env var keys in containers."""
@@ -866,6 +899,9 @@ _DANGEROUS_CAPABILITIES = {"SYS_ADMIN", "NET_ADMIN", "ALL"}
     risk_points=30,
     prod_behavior="hard_block",
     other_behavior="soft_risk",
+    compliance_tags=frozenset({"CIS-5.2.2", "CIS-5.2.3", "CIS-5.2.4", "NSA-3.1", "SOC2-CC6.1"}),
+    cis_benchmark="5.2.2",
+    nsa_control="3.1",
 )
 def check_host_namespace(manifest: dict) -> PolicyCheckResult:
     """Fail if hostNetwork, hostPID, or hostIPC is true in pod spec."""
@@ -912,6 +948,9 @@ def check_host_namespace(manifest: dict) -> PolicyCheckResult:
     risk_points=30,
     prod_behavior="hard_block",
     other_behavior="soft_risk",
+    compliance_tags=frozenset({"CIS-5.2.10", "NSA-3.1", "SOC2-CC6.1"}),
+    cis_benchmark="5.2.10",
+    nsa_control="3.1",
 )
 def check_dangerous_volume_mounts(manifest: dict) -> PolicyCheckResult:
     """Fail if hostPath volumes mount dangerous paths."""
@@ -962,6 +1001,9 @@ def check_dangerous_volume_mounts(manifest: dict) -> PolicyCheckResult:
     risk_points=20,
     prod_behavior="soft_risk",
     other_behavior="off",
+    compliance_tags=frozenset({"CIS-5.2.7", "CIS-5.2.9", "NSA-3.1", "SOC2-CC6.1"}),
+    cis_benchmark="5.2.7",
+    nsa_control="3.1",
 )
 def check_excessive_capabilities(manifest: dict) -> PolicyCheckResult:
     """Fail if SYS_ADMIN, NET_ADMIN, or ALL in capabilities.add."""
@@ -1014,6 +1056,9 @@ def check_excessive_capabilities(manifest: dict) -> PolicyCheckResult:
     risk_points=10,
     prod_behavior="soft_risk",
     other_behavior="off",
+    compliance_tags=frozenset({"CIS-5.1.5", "CIS-5.1.6", "NSA-2.1", "SOC2-CC6.1"}),
+    cis_benchmark="5.1.5",
+    nsa_control="2.1",
 )
 def check_service_account_token(manifest: dict) -> PolicyCheckResult:
     """Fail if automountServiceAccountToken is not explicitly false."""
@@ -1056,6 +1101,8 @@ def check_service_account_token(manifest: dict) -> PolicyCheckResult:
     risk_points=15,
     prod_behavior="soft_risk",
     other_behavior="off",
+    compliance_tags=frozenset({"NSA-4.3", "SOC2-CC6.6"}),
+    nsa_control="4.3",
 )
 def check_exposed_services(manifest: dict) -> PolicyCheckResult:
     """Fail if Service type is NodePort or LoadBalancer."""
@@ -1086,4 +1133,309 @@ def check_exposed_services(manifest: dict) -> PolicyCheckResult:
         passed=True,
         severity="medium",
         message=f"Service type is {svc_type} (internal).",
+    )
+
+
+# ---------------------------------------------------------------------------
+# Enterprise compliance checks (Phase 6 -- CIS / NSA hardening)
+# ---------------------------------------------------------------------------
+
+_PSS_BASELINE_ALLOWED_CAPABILITIES = frozenset({
+    "AUDIT_WRITE",
+    "CHOWN",
+    "DAC_OVERRIDE",
+    "FOWNER",
+    "FSETID",
+    "KILL",
+    "MKNOD",
+    "NET_BIND_SERVICE",
+    "SETFCAP",
+    "SETGID",
+    "SETPCAP",
+    "SETUID",
+    "SYS_CHROOT",
+})
+
+_PSS_BASELINE_ALLOWED_SELINUX_TYPES = frozenset({
+    "",
+    "container_t",
+    "container_init_t",
+    "container_kvm_t",
+})
+
+
+@policy_check(
+    check_id="allow_privilege_escalation",
+    name="Allow Privilege Escalation",
+    severity="critical",
+    category="security",
+    risk_points=25,
+    prod_behavior="hard_block",
+    other_behavior="soft_risk",
+    compliance_tags=frozenset({"CIS-5.2.5", "NSA-3.1"}),
+    cis_benchmark="5.2.5",
+    nsa_control="3.1",
+    description="Containers must explicitly set allowPrivilegeEscalation: false.",
+    remediation="Set securityContext.allowPrivilegeEscalation: false on every container.",
+)
+def check_allow_privilege_escalation(manifest: dict) -> PolicyCheckResult:
+    """allowPrivilegeEscalation must be explicitly false on all containers (CIS 5.2.5)."""
+    containers = _get_containers(manifest)
+    if not containers:
+        return PolicyCheckResult(
+            check_id="allow_privilege_escalation",
+            name="Allow Privilege Escalation",
+            passed=True,
+            severity="critical",
+            message="Not a workload resource, skipped.",
+        )
+
+    violations: list[str] = []
+    for container in containers:
+        name = container.get("name", "unknown")
+        sec_ctx = container.get("securityContext", {})
+        if sec_ctx.get("allowPrivilegeEscalation") is not False:
+            violations.append(
+                f"Container '{name}' does not set allowPrivilegeEscalation: false"
+            )
+
+    if violations:
+        return PolicyCheckResult(
+            check_id="allow_privilege_escalation",
+            name="Allow Privilege Escalation",
+            passed=False,
+            severity="critical",
+            message="; ".join(violations),
+            details={"violations": violations},
+        )
+
+    return PolicyCheckResult(
+        check_id="allow_privilege_escalation",
+        name="Allow Privilege Escalation",
+        passed=True,
+        severity="critical",
+        message="All containers explicitly disable privilege escalation.",
+    )
+
+
+@policy_check(
+    check_id="host_pid",
+    name="Host PID Namespace",
+    severity="critical",
+    category="security",
+    risk_points=25,
+    prod_behavior="hard_block",
+    other_behavior="soft_risk",
+    compliance_tags=frozenset({"CIS-5.2.2"}),
+    cis_benchmark="5.2.2",
+    description="Pods must not share the host PID namespace.",
+    remediation="Remove or set hostPID: false in the pod spec.",
+)
+def check_host_pid(manifest: dict) -> PolicyCheckResult:
+    """hostPID must not be true in pod spec (CIS 5.2.2)."""
+    if manifest.get("kind") not in _WORKLOAD_KINDS:
+        return PolicyCheckResult(
+            check_id="host_pid",
+            name="Host PID Namespace",
+            passed=True,
+            severity="critical",
+            message="Not a workload resource, skipped.",
+        )
+
+    pod_spec = manifest.get("spec", {}).get("template", {}).get("spec", {})
+
+    if pod_spec.get("hostPID") is True:
+        return PolicyCheckResult(
+            check_id="host_pid",
+            name="Host PID Namespace",
+            passed=False,
+            severity="critical",
+            message="hostPID is enabled; pod shares the host PID namespace.",
+            details={"hostPID": True},
+        )
+
+    return PolicyCheckResult(
+        check_id="host_pid",
+        name="Host PID Namespace",
+        passed=True,
+        severity="critical",
+        message="hostPID is not enabled.",
+    )
+
+
+@policy_check(
+    check_id="host_ipc",
+    name="Host IPC Namespace",
+    severity="critical",
+    category="security",
+    risk_points=25,
+    prod_behavior="hard_block",
+    other_behavior="soft_risk",
+    compliance_tags=frozenset({"CIS-5.2.3"}),
+    cis_benchmark="5.2.3",
+    description="Pods must not share the host IPC namespace.",
+    remediation="Remove or set hostIPC: false in the pod spec.",
+)
+def check_host_ipc(manifest: dict) -> PolicyCheckResult:
+    """hostIPC must not be true in pod spec (CIS 5.2.3)."""
+    if manifest.get("kind") not in _WORKLOAD_KINDS:
+        return PolicyCheckResult(
+            check_id="host_ipc",
+            name="Host IPC Namespace",
+            passed=True,
+            severity="critical",
+            message="Not a workload resource, skipped.",
+        )
+
+    pod_spec = manifest.get("spec", {}).get("template", {}).get("spec", {})
+
+    if pod_spec.get("hostIPC") is True:
+        return PolicyCheckResult(
+            check_id="host_ipc",
+            name="Host IPC Namespace",
+            passed=False,
+            severity="critical",
+            message="hostIPC is enabled; pod shares the host IPC namespace.",
+            details={"hostIPC": True},
+        )
+
+    return PolicyCheckResult(
+        check_id="host_ipc",
+        name="Host IPC Namespace",
+        passed=True,
+        severity="critical",
+        message="hostIPC is not enabled.",
+    )
+
+
+@policy_check(
+    check_id="default_namespace",
+    name="Default Namespace",
+    severity="medium",
+    category="best-practice",
+    risk_points=15,
+    prod_behavior="soft_risk",
+    other_behavior="soft_risk",
+    compliance_tags=frozenset({"CIS-5.7.4"}),
+    cis_benchmark="5.7.4",
+    description="Resources must not be deployed into the 'default' namespace.",
+    remediation="Set metadata.namespace to a dedicated, non-default namespace.",
+)
+def check_default_namespace(manifest: dict) -> PolicyCheckResult:
+    """metadata.namespace must not be 'default' or absent (CIS 5.7.4)."""
+    namespace = manifest.get("metadata", {}).get("namespace")
+
+    if namespace is None:
+        return PolicyCheckResult(
+            check_id="default_namespace",
+            name="Default Namespace",
+            passed=True,
+            severity="medium",
+            message="Resource has no namespace context, skipped.",
+        )
+
+    if namespace == "default" or namespace == "":
+        return PolicyCheckResult(
+            check_id="default_namespace",
+            name="Default Namespace",
+            passed=False,
+            severity="medium",
+            message=f"Resource is deployed in the '{namespace or 'default'}' namespace. Use a dedicated namespace.",
+            details={"namespace": namespace or "default"},
+        )
+
+    return PolicyCheckResult(
+        check_id="default_namespace",
+        name="Default Namespace",
+        passed=True,
+        severity="medium",
+        message=f"Resource is deployed in namespace '{namespace}'.",
+    )
+
+
+@policy_check(
+    check_id="pod_security_standards",
+    name="Pod Security Standards (Baseline)",
+    severity="high",
+    category="security",
+    risk_points=20,
+    prod_behavior="soft_risk",
+    other_behavior="off",
+    compliance_tags=frozenset({"CIS-5.2", "NSA-3.1"}),
+    cis_benchmark="5.2",
+    nsa_control="3.1",
+    description="Pod spec must conform to Kubernetes Pod Security Standards Baseline level.",
+    remediation=(
+        "Remove privileged containers, host namespace sharing, non-baseline capabilities, "
+        "non-default procMount values, and restricted SELinux types."
+    ),
+)
+def check_pod_security_standards(manifest: dict) -> PolicyCheckResult:
+    """Evaluate pod spec against PSS Baseline level (CIS 5.2, NSA Section 3)."""
+    containers = _get_containers(manifest)
+    if not containers:
+        return PolicyCheckResult(
+            check_id="pod_security_standards",
+            name="Pod Security Standards (Baseline)",
+            passed=True,
+            severity="high",
+            message="Not a workload resource, skipped.",
+        )
+
+    pod_spec = manifest.get("spec", {}).get("template", {}).get("spec", {})
+    violations: list[str] = []
+
+    # Pod-level host namespace checks
+    for ns_field in ("hostNetwork", "hostPID", "hostIPC"):
+        if pod_spec.get(ns_field) is True:
+            violations.append(f"Pod spec has {ns_field}: true")
+
+    # Per-container checks
+    for container in containers:
+        name = container.get("name", "unknown")
+        sec_ctx = container.get("securityContext", {})
+
+        # Privileged containers are Baseline-banned
+        if sec_ctx.get("privileged") is True:
+            violations.append(f"Container '{name}' runs as privileged")
+
+        # Capabilities beyond the PSS Baseline allowed set
+        added_caps: list[str] = sec_ctx.get("capabilities", {}).get("add", [])
+        disallowed = [cap for cap in added_caps if cap not in _PSS_BASELINE_ALLOWED_CAPABILITIES]
+        if disallowed:
+            violations.append(
+                f"Container '{name}' adds non-baseline capabilities: {', '.join(disallowed)}"
+            )
+
+        # procMount must be Default (or unset)
+        proc_mount = sec_ctx.get("procMount")
+        if proc_mount is not None and proc_mount != "Default":
+            violations.append(
+                f"Container '{name}' has procMount: {proc_mount!r} (only 'Default' is allowed)"
+            )
+
+        # SELinux type must be in the allowed set
+        selinux_type = sec_ctx.get("seLinuxOptions", {}).get("type", "")
+        if selinux_type not in _PSS_BASELINE_ALLOWED_SELINUX_TYPES:
+            violations.append(
+                f"Container '{name}' has disallowed seLinuxOptions.type: {selinux_type!r}"
+            )
+
+    if violations:
+        return PolicyCheckResult(
+            check_id="pod_security_standards",
+            name="Pod Security Standards (Baseline)",
+            passed=False,
+            severity="high",
+            message="; ".join(violations),
+            details={"pss_level": "baseline", "violations": violations},
+        )
+
+    return PolicyCheckResult(
+        check_id="pod_security_standards",
+        name="Pod Security Standards (Baseline)",
+        passed=True,
+        severity="high",
+        message="Pod spec conforms to PSS Baseline level.",
+        details={"pss_level": "baseline"},
     )

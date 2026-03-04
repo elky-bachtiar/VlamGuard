@@ -10,10 +10,17 @@ from vlamguard.engine.helm import render_chart
 from vlamguard.engine.registry import get_check_fns
 from vlamguard.engine.scoring import calculate_risk
 from vlamguard.engine.secrets import scan_secrets
+from vlamguard.engine.waivers import apply_waivers, load_waivers
 from vlamguard.models.request import AnalyzeRequest
 from vlamguard.models.response import AnalyzeResponse, PolicyCheckResult, SecuritySection
 
 import vlamguard.engine.policies  # noqa: F401
+import vlamguard.engine.policies_extended  # noqa: F401
+import vlamguard.engine.crd.keda  # noqa: F401
+import vlamguard.engine.crd.argocd  # noqa: F401
+import vlamguard.engine.crd.istio  # noqa: F401
+import vlamguard.engine.crd.certmanager  # noqa: F401
+import vlamguard.engine.crd.externalsecrets  # noqa: F401
 
 _EXTENDED_CHECK_IDS = {
     "host_namespace", "dangerous_volume_mounts", "excessive_capabilities",
@@ -44,6 +51,12 @@ async def analyze(request: AnalyzeRequest) -> AnalyzeResponse:
             if result.message.endswith("skipped."):
                 continue
             all_results.append(result)
+
+    # Step 2.5: Apply waivers if provided
+    waivers_applied: list[dict] = []
+    if request.waivers_path:
+        waivers = load_waivers(request.waivers_path)
+        all_results, waivers_applied = apply_waivers(all_results, waivers, manifests)
 
     # Step 3: Secrets detection (if security_scan enabled)
     secrets_result = None
@@ -123,6 +136,7 @@ async def analyze(request: AnalyzeRequest) -> AnalyzeResponse:
         security_grade=security_grade,
         security=security_section,
         ai_context=ai_context,
+        waivers_applied=waivers_applied,
         metadata={
             "environment": request.environment,
             "chart": request.chart,

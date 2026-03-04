@@ -1,0 +1,44 @@
+# Argo CD CRD violations fixture — triggers all 8 Argo CD policy checks
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: bad-application
+  namespace: argocd
+spec:
+  # argocd_project_not_default: using "default" project
+  project: default
+  source:
+    repoURL: https://github.com/example/app.git
+    # argocd_source_target_revision: HEAD is unpinned
+    targetRevision: HEAD
+    path: manifests
+  destination:
+    # argocd_destination_not_in_cluster: using in-cluster default URL
+    server: https://kubernetes.default.svc
+    namespace: production
+  syncPolicy:
+    automated:
+      # argocd_auto_sync_prune: prune=true without selfHeal=true
+      prune: true
+      selfHeal: false
+    # argocd_sync_retry_configured: no retry configured
+---
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: bad-project
+  namespace: argocd
+spec:
+  description: Overly permissive project
+  # argocd_project_wildcard_source: wildcard source repos
+  sourceRepos:
+    - "*"
+  destinations:
+    # argocd_project_wildcard_destination: wildcard server+namespace
+    - server: "*"
+      namespace: "*"
+  # argocd_project_cluster_resources: wildcard cluster resources
+  clusterResourceWhitelist:
+    - group: "*"
+      kind: "*"

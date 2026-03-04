@@ -1,0 +1,288 @@
+# Clean CRD fixture — one properly-configured resource per CRD ecosystem
+# All 43+ CRD checks should pass with these resources
+---
+# KEDA: ScaledObject (passes all ScaledObject checks)
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: good-scaledobject
+  namespace: production
+spec:
+  minReplicaCount: 2
+  maxReplicaCount: 50
+  cooldownPeriod: 300
+  pollingInterval: 30
+  scaleTargetRef:
+    name: my-deployment
+  fallback:
+    replicas: 3
+    failureThreshold: 5
+  triggers:
+    - type: prometheus
+      metadata:
+        serverAddress: http://prometheus:9090
+        query: rate(http_requests_total[1m])
+        threshold: "100"
+      authenticationRef:
+        name: prom-auth
+---
+# KEDA: ScaledJob (passes keda_job_history_limits)
+apiVersion: keda.sh/v1alpha1
+kind: ScaledJob
+metadata:
+  name: good-scaledjob
+  namespace: production
+spec:
+  successfulJobsHistoryLimit: 5
+  failedJobsHistoryLimit: 10
+  jobTargetRef:
+    template:
+      spec:
+        containers:
+          - name: worker
+            image: ghcr.io/example/worker:1.0
+        restartPolicy: Never
+  triggers:
+    - type: rabbitmq
+      metadata:
+        queueName: jobs
+      authenticationRef:
+        name: rabbit-auth
+---
+# KEDA: TriggerAuthentication (passes keda_trigger_auth_secrets)
+apiVersion: keda.sh/v1alpha1
+kind: TriggerAuthentication
+metadata:
+  name: good-trigger-auth
+  namespace: production
+spec:
+  secretTargetRef:
+    - parameter: password
+      name: my-secret
+      key: password
+---
+# Istio: VirtualService (passes timeout, retries, no fault injection)
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: good-virtualservice
+  namespace: production
+spec:
+  hosts:
+    - reviews.prod.svc.cluster.local
+  http:
+    - route:
+        - destination:
+            host: reviews
+            port:
+              number: 9080
+      timeout: 30s
+      retries:
+        attempts: 3
+        perTryTimeout: 10s
+---
+# Istio: DestinationRule (passes TLS, outlier detection, connection pool)
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: good-destinationrule
+  namespace: production
+spec:
+  host: reviews.prod.svc.cluster.local
+  trafficPolicy:
+    tls:
+      mode: ISTIO_MUTUAL
+    outlierDetection:
+      consecutive5xxErrors: 5
+      interval: 30s
+      baseEjectionTime: 30s
+    connectionPool:
+      tcp:
+        maxConnections: 100
+      http:
+        h2UpgradePolicy: DEFAULT
+        http1MaxPendingRequests: 100
+---
+# Istio: PeerAuthentication (passes strict mTLS)
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: good-peerauth
+  namespace: production
+spec:
+  mtls:
+    mode: STRICT
+---
+# Istio: AuthorizationPolicy (passes no-allow-all — explicit rules)
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: good-authzpolicy
+  namespace: production
+spec:
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals: ["cluster.local/ns/production/sa/frontend"]
+      to:
+        - operation:
+            methods: ["GET"]
+            paths: ["/api/*"]
+---
+# Istio: Gateway (passes TLS required, no wildcard hosts)
+apiVersion: networking.istio.io/v1beta1
+kind: Gateway
+metadata:
+  name: good-gateway
+  namespace: production
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+    - port:
+        number: 443
+        name: https
+        protocol: HTTPS
+      hosts:
+        - app.example.com
+      tls:
+        mode: SIMPLE
+        credentialName: app-tls-cert
+---
+# Argo CD: Application (passes all Application checks)
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: good-application
+  namespace: argocd
+spec:
+  project: team-frontend
+  source:
+    repoURL: https://github.com/example/app.git
+    targetRevision: v1.2.3
+    path: manifests
+  destination:
+    server: https://k8s.example.com:6443
+    namespace: production
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+---
+# Argo CD: AppProject (passes all AppProject checks)
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: good-project
+  namespace: argocd
+spec:
+  description: Scoped project for team-frontend
+  sourceRepos:
+    - https://github.com/example/app.git
+    - https://github.com/example/infra.git
+  destinations:
+    - server: https://k8s.example.com:6443
+      namespace: production
+    - server: https://k8s.example.com:6443
+      namespace: staging
+  clusterResourceWhitelist:
+    - group: ""
+      kind: Namespace
+---
+# cert-manager: Certificate (passes all Certificate checks)
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: good-certificate
+  namespace: production
+spec:
+  secretName: good-tls
+  issuerRef:
+    name: letsencrypt-prod
+    kind: ClusterIssuer
+  duration: 8760h
+  renewBefore: 720h
+  privateKey:
+    algorithm: ECDSA
+    size: P256
+  dnsNames:
+    - app.example.com
+    - api.example.com
+---
+# cert-manager: ClusterIssuer (passes solver and no staging)
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: good-clusterissuer
+spec:
+  acme:
+    server: https://acme-v02.api.letsencrypt.org/directory
+    email: admin@example.com
+    privateKeySecretRef:
+      name: acme-key
+    solvers:
+      - http01:
+          ingress:
+            class: nginx
+---
+# ESO: ExternalSecret (passes refresh, target creation, deletion policy)
+apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata:
+  name: good-external-secret
+  namespace: production
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: vault-store
+    kind: SecretStore
+  target:
+    name: my-secret
+    creationPolicy: Owner
+    deletionPolicy: Retain
+  data:
+    - secretKey: password
+      remoteRef:
+        key: /prod/db/password
+---
+# ESO: SecretStore (passes provider check)
+apiVersion: external-secrets.io/v1beta1
+kind: SecretStore
+metadata:
+  name: good-secret-store
+  namespace: production
+spec:
+  provider:
+    vault:
+      server: https://vault.example.com
+      path: secret
+      auth:
+        kubernetes:
+          mountPath: kubernetes
+          role: external-secrets
+---
+# ESO: ClusterSecretStore (passes provider + conditions)
+apiVersion: external-secrets.io/v1beta1
+kind: ClusterSecretStore
+metadata:
+  name: good-cluster-secret-store
+spec:
+  provider:
+    vault:
+      server: https://vault.example.com
+      path: secret
+      auth:
+        kubernetes:
+          mountPath: kubernetes
+          role: external-secrets
+  conditions:
+    - namespaces:
+        - production
+        - staging

@@ -1,0 +1,104 @@
+# KEDA CRD violations fixture — triggers all 15 KEDA policy checks
+# ScaledObject triggers: keda_min_replica_production, keda_fallback_required,
+#   keda_auth_ref_required, keda_hpa_ownership_validation, keda_max_replica_bound,
+#   keda_cooldown_period, keda_polling_interval, keda_fallback_replica_range,
+#   keda_restore_replicas_warning, keda_inline_secret_detection,
+#   keda_initial_cooldown, keda_paused_annotation
+# ScaledJob triggers: keda_job_history_limits
+# TriggerAuthentication triggers: keda_trigger_auth_secrets
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: bad-scaledobject
+  namespace: production
+  annotations:
+    # keda_hpa_ownership_validation: annotation set to "true"
+    validations.keda.sh/hpa-ownership: "true"
+    # keda_paused_annotation: any value pauses scaling
+    autoscaling.keda.sh/paused: "false"
+spec:
+  # keda_min_replica_production: minReplicaCount < 1
+  minReplicaCount: 0
+  # keda_max_replica_bound: maxReplicaCount > 500
+  maxReplicaCount: 999
+  # keda_cooldown_period: < 120 seconds
+  cooldownPeriod: 30
+  # keda_polling_interval: < 10 seconds
+  pollingInterval: 5
+  # keda_initial_cooldown: < 60 seconds
+  advanced:
+    restoreToOriginalReplicaCount: false  # keda_restore_replicas_warning
+    horizontalPodAutoscalerConfig:
+      name: bad-hpa
+  initialCooldownPeriod: 10
+  scaleTargetRef:
+    name: my-deployment
+  # keda_fallback_required: no fallback configured
+  # keda_auth_ref_required: credential keys without authenticationRef
+  # keda_inline_secret_detection: credential-like values
+  triggers:
+    - type: prometheus
+      metadata:
+        serverAddress: http://prometheus:9090
+        query: rate(http_requests_total[1m])
+        threshold: "100"
+        password: "s3cretPassw0rd!"
+        connectionString: "Server=db;Database=app;User=admin;Password=hunter2"
+---
+# Second ScaledObject to trigger keda_fallback_replica_range
+# (needs fallback present but with replicas outside [min, max])
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: bad-fallback-range
+  namespace: production
+spec:
+  minReplicaCount: 5
+  maxReplicaCount: 20
+  scaleTargetRef:
+    name: other-deployment
+  fallback:
+    # keda_fallback_replica_range: replicas < minReplicaCount (5)
+    replicas: 1
+    failureThreshold: 3
+  triggers:
+    - type: cpu
+      metadata:
+        type: Utilization
+        value: "80"
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledJob
+metadata:
+  name: bad-scaledjob
+  namespace: production
+spec:
+  # keda_job_history_limits: missing both history limits
+  jobTargetRef:
+    template:
+      spec:
+        containers:
+          - name: worker
+            image: ghcr.io/example/worker:1.0
+        restartPolicy: Never
+  triggers:
+    - type: rabbitmq
+      metadata:
+        queueName: jobs
+        host: amqp://guest:guest@rabbitmq:5672
+---
+apiVersion: keda.sh/v1alpha1
+kind: TriggerAuthentication
+metadata:
+  name: bad-trigger-auth
+  namespace: production
+spec:
+  # keda_trigger_auth_secrets: inline plaintext values instead of secretTargetRef
+  env:
+    - parameter: password
+      name: DB_PASSWORD
+      value: "plaintext-password-bad"
+    - parameter: apiKey
+      name: API_KEY
+      value: "sk-1234567890abcdef"

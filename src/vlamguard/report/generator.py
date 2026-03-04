@@ -1,6 +1,6 @@
 """JSON and Markdown report generation."""
 
-from vlamguard.models.response import AnalyzeResponse
+from vlamguard.models.response import AnalyzeResponse, Recommendation
 
 
 _GRADE_DESCRIPTIONS = {
@@ -95,7 +95,8 @@ def generate_markdown(response: AnalyzeResponse) -> str:
             lines.append("")
             for rec in response.security.hardening_recommendations:
                 impact_icon = {"high": "HIGH", "medium": "MEDIUM", "low": "LOW"}.get(rec.impact, rec.impact)
-                lines.append(f"{rec.priority}. {impact_icon} — {rec.action} ({rec.effort} effort)")
+                resource_label = f" (`{rec.resource}`)" if rec.resource else ""
+                lines.append(f"{rec.priority}. {impact_icon} — {rec.action}{resource_label} ({rec.effort} effort)")
                 if rec.details:
                     lines.append(f"   {rec.details}")
                 if rec.yaml_hint:
@@ -147,7 +148,15 @@ def generate_markdown(response: AnalyzeResponse) -> str:
             lines.append("### Recommendations")
             lines.append("")
             for i, rec in enumerate(response.ai_context.recommendations, 1):
-                lines.append(f"{i}. {rec}")
+                if isinstance(rec, str):
+                    lines.append(f"{i}. {rec}")
+                else:
+                    resource_label = f" (`{rec.resource}`)" if rec.resource else ""
+                    lines.append(f"{i}. {rec.action}{resource_label}")
+                    if rec.reason:
+                        lines.append(f"   *{rec.reason}*")
+                    if rec.yaml_snippet:
+                        lines.append(f"   ```yaml\n   {rec.yaml_snippet}\n   ```")
             lines.append("")
 
         if response.ai_context.rollback_suggestion:

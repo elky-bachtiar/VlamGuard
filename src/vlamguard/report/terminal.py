@@ -5,7 +5,7 @@ from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 
-from vlamguard.models.response import AnalyzeResponse
+from vlamguard.models.response import AnalyzeResponse, Recommendation
 
 _LEVEL_COLORS = {
     "low": "green",
@@ -109,7 +109,16 @@ def print_report(response: AnalyzeResponse, console: Console | None = None) -> N
         if response.ai_context.recommendations:
             console.print("\n[bold blue]Recommendations:[/]")
             for i, rec in enumerate(response.ai_context.recommendations, 1):
-                console.print(f"  {i}. {rec}")
+                if isinstance(rec, str):
+                    console.print(f"  {i}. {rec}")
+                else:
+                    resource_label = f" [cyan]({rec.resource})[/]" if rec.resource else ""
+                    console.print(f"  {i}. {rec.action}{resource_label}")
+                    if rec.reason:
+                        console.print(f"     [italic]{rec.reason}[/]")
+                    if rec.yaml_snippet:
+                        for line in rec.yaml_snippet.splitlines():
+                            console.print(f"     [dim]{line}[/]")
         if response.ai_context.rollback_suggestion:
             console.print(f"\n[dim]Rollback: {response.ai_context.rollback_suggestion}[/]")
     else:
@@ -160,9 +169,13 @@ def _print_security_section(response: AnalyzeResponse, console: Console) -> None
         console.print("\n[bold blue]Hardening Recommendations:[/]")
         for rec in sec.hardening_recommendations:
             impact_style = {"high": "red", "medium": "yellow", "low": "green"}.get(rec.impact, "white")
+            resource_label = f" [cyan]({rec.resource})[/]" if rec.resource else ""
             console.print(
-                f"  {rec.priority}. [{impact_style}]{rec.impact.upper()}[/] — {rec.action} "
+                f"  {rec.priority}. [{impact_style}]{rec.impact.upper()}[/] — {rec.action}{resource_label} "
                 f"([dim]{rec.effort} effort[/])"
             )
             if rec.details:
                 console.print(f"     {rec.details}")
+            if rec.yaml_hint:
+                for line in rec.yaml_hint.splitlines():
+                    console.print(f"     [dim]{line}[/]")

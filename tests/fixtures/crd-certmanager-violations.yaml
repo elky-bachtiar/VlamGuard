@@ -1,0 +1,35 @@
+# cert-manager CRD violations fixture — triggers all 6 cert-manager checks
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: bad-certificate
+  namespace: production
+spec:
+  secretName: bad-tls
+  issuerRef:
+    name: letsencrypt-prod
+    kind: ClusterIssuer
+  # certmgr_certificate_duration: absent
+  # certmgr_certificate_renew_before: absent
+  # certmgr_certificate_private_key_algorithm: RSA with weak key size
+  privateKey:
+    algorithm: RSA
+    size: 2048
+  # certmgr_certificate_wildcard_production: wildcard domain
+  dnsNames:
+    - "*.example.com"
+    - example.com
+---
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: bad-clusterissuer
+spec:
+  acme:
+    # certmgr_issuer_staging_in_production: staging endpoint
+    server: https://acme-staging-v02.api.letsencrypt.org/directory
+    email: admin@example.com
+    privateKeySecretRef:
+      name: acme-key
+    # certmgr_issuer_solver_configured: no solvers

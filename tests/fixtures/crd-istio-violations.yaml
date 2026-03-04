@@ -1,0 +1,75 @@
+# Istio CRD violations fixture — triggers all 10 Istio policy checks
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: bad-virtualservice
+  namespace: production
+spec:
+  hosts:
+    - reviews.prod.svc.cluster.local
+  http:
+    # istio_virtualservice_timeout: no timeout
+    # istio_virtualservice_retries: no retries
+    # istio_virtualservice_fault_injection_production: fault injection present
+    - route:
+        - destination:
+            host: reviews
+            port:
+              number: 9080
+      fault:
+        delay:
+          percentage:
+            value: 10
+          fixedDelay: 5s
+---
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: bad-destinationrule
+  namespace: production
+spec:
+  host: reviews.prod.svc.cluster.local
+  trafficPolicy:
+    # istio_destination_rule_tls: mode is DISABLE (not ISTIO_MUTUAL or MUTUAL)
+    tls:
+      mode: DISABLE
+    # istio_destination_rule_outlier_detection: absent
+    # istio_destination_rule_connection_pool: absent
+---
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: bad-peerauth
+  namespace: production
+spec:
+  # istio_peer_auth_strict_mtls: mode is PERMISSIVE (not STRICT)
+  mtls:
+    mode: PERMISSIVE
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: bad-authzpolicy
+  namespace: production
+spec:
+  # istio_authz_no_allow_all: ALLOW with no rules = allow-all
+  action: ALLOW
+---
+apiVersion: networking.istio.io/v1beta1
+kind: Gateway
+metadata:
+  name: bad-gateway
+  namespace: production
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+    - port:
+        number: 80
+        name: http
+        protocol: HTTP
+      hosts:
+        # istio_gateway_wildcard_host: bare wildcard
+        - "*"
+      # istio_gateway_tls_required: no TLS configured

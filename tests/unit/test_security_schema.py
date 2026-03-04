@@ -3,6 +3,7 @@
 from unittest.mock import patch
 
 from vlamguard.ai.schemas import validate_ai_response, validate_security_ai_response
+from vlamguard.models.response import Recommendation
 
 
 class TestSecuritySchemaValidation:
@@ -201,3 +202,81 @@ class TestSecuritySchemaValidation:
         # result dict still has the key (with empty list) so it is not None
         assert result is not None
         assert result["hardening_recommendations"] == []
+
+    def test_recommendations_accepts_mixed_array(self):
+        """Schema must accept an array with both plain strings and recommendation objects."""
+        data = {
+            "summary": "Mixed recommendations.",
+            "impact_analysis": [],
+            "recommendations": [
+                "Pin image tag.",
+                {
+                    "action": "Set resource limits",
+                    "reason": "Without limits a pod can starve other workloads.",
+                    "resource": "Deployment/web",
+                    "yaml_snippet": "limits:\n  cpu: 500m",
+                },
+            ],
+            "rollback_suggestion": "kubectl rollout undo",
+        }
+        result = validate_ai_response(data)
+        assert result is not None
+        assert isinstance(result.recommendations[0], str)
+        assert isinstance(result.recommendations[1], Recommendation)
+        assert result.recommendations[1].resource == "Deployment/web"
+        assert result.recommendations[1].reason == "Without limits a pod can starve other workloads."
+
+    def test_recommendations_object_without_optional_fields(self):
+        """A recommendation object with only 'action' must be accepted."""
+        data = {
+            "summary": "Action only.",
+            "impact_analysis": [],
+            "recommendations": [{"action": "Enable probes"}],
+            "rollback_suggestion": "kubectl rollout undo",
+        }
+        result = validate_ai_response(data)
+        assert result is not None
+        rec = result.recommendations[0]
+        assert isinstance(rec, Recommendation)
+        assert rec.reason is None
+        assert rec.resource is None
+        assert rec.yaml_snippet is None
+
+    def test_recommendations_object_with_extra_field_rejected(self):
+        """A recommendation object with unknown fields must be rejected (additionalProperties: false)."""
+        data = {
+            "summary": "Bad rec.",
+            "impact_analysis": [],
+            "recommendations": [{"action": "Do something", "unknown_field": "bad"}],
+            "rollback_suggestion": "kubectl rollout undo",
+        }
+        result = validate_ai_response(data)
+        assert result is None
+
+    def test_hardening_with_resource_field(self):
+        """Hardening recommendations must accept the resource field."""
+        data = {
+            "summary": "Hardening test.",
+            "impact_analysis": [],
+            "recommendations": ["Fix it."],
+            "rollback_suggestion": "kubectl rollout undo",
+            "hardening_recommendations": [
+                {
+                    "priority": 1,
+                    "category": "container",
+                    "action": "Set readOnlyRootFilesystem",
+                    "effort": "low",
+                    "impact": "high",
+                    "resource": "Deployment/web",
+                    "yaml_hint": "readOnlyRootFilesystem: true",
+                },
+            ],
+        }
+        result = validate_ai_response(data)
+        assert result is not None
+
+        sec = validate_security_ai_response(data)
+        assert sec is not None
+        recs = sec["hardening_recommendations"]
+        assert len(recs) == 1
+        assert recs[0].resource == "Deployment/web"

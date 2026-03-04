@@ -14,7 +14,10 @@
   <a href="#how-it-works">How It Works</a> &bull;
   <a href="#cli-reference">CLI Reference</a> &bull;
   <a href="#policy-checks">Policy Checks</a> &bull;
+  <a href="#crd-policy-checks">CRD Policy Checks</a> &bull;
   <a href="#security-scan">Security Scan</a> &bull;
+  <a href="#waiver-workflow">Waiver Workflow</a> &bull;
+  <a href="#compliance-mapping">Compliance Mapping</a> &bull;
   <a href="#api-reference">API Reference</a> &bull;
   <a href="#configuration">Configuration</a>
 </p>
@@ -32,6 +35,8 @@
 - [CLI Reference](#cli-reference)
   - [`vlamguard check`](#vlamguard-check)
   - [`vlamguard security-scan`](#vlamguard-security-scan)
+  - [`vlamguard compliance`](#vlamguard-compliance)
+  - [`vlamguard discover`](#vlamguard-discover)
   - [Output Formats](#output-formats)
   - [Exit Codes](#exit-codes)
 - [Policy Checks](#policy-checks)
@@ -40,10 +45,18 @@
   - [Reliability Checks](#reliability-checks)
   - [Best-Practice Checks](#best-practice-checks)
   - [Quick Reference Table](#quick-reference-table)
+- [CRD Policy Checks](#crd-policy-checks)
+  - [KEDA Checks (14)](#keda-checks)
+  - [Argo CD Checks (8)](#argocd-checks)
+  - [Istio Checks (10)](#istio-checks)
+  - [cert-manager Checks (6)](#cert-manager-checks)
+  - [External Secrets Operator Checks (5)](#external-secrets-operator-checks)
 - [Security Scan](#security-scan)
   - [Secrets Detection](#secrets-detection)
   - [Extended Security Checks](#extended-security-checks)
   - [Security Grading (A-F)](#security-grading-a-f)
+- [Waiver Workflow](#waiver-workflow)
+- [Compliance Mapping](#compliance-mapping)
 - [External Tools](#external-tools)
 - [AI Context Layer](#ai-context-layer)
 - [API Reference](#api-reference)
@@ -62,7 +75,7 @@ VlamGuard analyzes Kubernetes and Helm deployments **before they reach productio
 
 | Layer | What it does | Always runs? |
 |-------|-------------|:---:|
-| **Deterministic Policy Engine** | 22 built-in checks across security, reliability, and best practices | Yes |
+| **Deterministic Policy Engine** | 79 built-in checks across security, reliability, and best practices | Yes |
 | **Secrets & Security Scanner** | Regex + entropy-based credential detection, security grading | Yes (opt-out) |
 | **AI Context Layer** | Natural-language impact analysis, recommendations, rollback suggestions | Optional |
 
@@ -155,7 +168,7 @@ Every analysis follows this sequence:
                     | Parsed Manifests  |  list of Kubernetes resources
                     +--------+----------+
                              |
-                    Step 2   |  22 Policy Checks
+                    Step 2   |  79 Policy Checks
                              v
                     +-------------------+
                     | Policy Results    |  pass/fail per check per resource
@@ -214,7 +227,7 @@ Secrets detection results feed directly into the risk scoring engine:
 | `production` | Hard block | Score = **100**, `blocked = true`. Each finding appears in `hard_blocks` as `"Secrets Detection: {type} at {location}"`. |
 | `dev` / `staging` | Soft risk (+30 per finding) | Each hard-pattern finding that was downgraded to a soft risk adds **+30 points** to the soft score. Multiple secrets accumulate (e.g., 2 findings = +60). |
 
-This means a deployment with a confirmed hardcoded production secret (e.g., a `DATABASE_URL` with embedded credentials) will **always be blocked**, even if all 22 policy checks pass.
+This means a deployment with a confirmed hardcoded production secret (e.g., a `DATABASE_URL` with embedded credentials) will **always be blocked**, even if all 79 policy checks pass.
 
 ### Environment-Aware Behavior
 
@@ -233,7 +246,7 @@ This means the same chart can pass in dev but fail in production — exactly wha
 
 ### `vlamguard check`
 
-Full risk analysis. Runs all 22 policy checks, optional secrets detection, optional external tools, optional AI context.
+Full risk analysis. Runs all 79 policy checks, optional secrets detection, optional external tools, optional AI context.
 
 ```bash
 vlamguard check [OPTIONS]
@@ -248,6 +261,7 @@ vlamguard check [OPTIONS]
 | `--skip-ai` | flag | off | Skip AI context generation |
 | `--skip-external` | flag | off | Skip external tools |
 | `--no-security-scan` | flag | off | Disable secrets detection + extended checks + grading |
+| `--waivers PATH` | string | — | Path to waiver YAML file |
 | `--output TEXT` | string | `terminal` | Output format: `terminal`, `json`, `markdown` |
 | `--output-file PATH` | string | — | Write output to file |
 
@@ -287,11 +301,12 @@ vlamguard security-scan [OPTIONS]
 | `--manifests PATH` | string | — | Path to pre-rendered YAML |
 | `--env TEXT` | string | `production` | Target environment |
 | `--skip-ai` | flag | off | Skip AI hardening recommendations |
+| `--waivers PATH` | string | — | Path to waiver YAML file |
 | `--output TEXT` | string | `terminal` | Output format |
 | `--output-file PATH` | string | — | Write output to file |
 
 #### Examples
-or
+
 ```bash
 # Full security scan with AI hardening recommendations
 vlamguard security-scan --chart ./my-chart
@@ -300,14 +315,95 @@ vlamguard security-scan --chart ./my-chart
 vlamguard security-scan --chart ./my-chart --skip-ai --output json
 ```
 
+### `vlamguard compliance`
+
+List all policy checks with their compliance framework mappings.
+
+```bash
+vlamguard compliance [OPTIONS]
+```
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--framework TEXT` | string | — | Filter by framework: `CIS`, `NSA`, `SOC2` |
+| `--output TEXT` | string | `terminal` | Output format: `terminal`, `json` |
+
+#### Examples
+
+```bash
+# View all checks with compliance tags
+vlamguard compliance
+
+# Filter by framework
+vlamguard compliance --framework CIS
+vlamguard compliance --framework NSA
+vlamguard compliance --framework SOC2
+
+# JSON output for tooling
+vlamguard compliance --output json
+```
+
+### `vlamguard discover`
+
+Recursively find and analyze all Helm charts under a directory tree. Useful for mono-repos and platform repos with multiple charts.
+
+```bash
+vlamguard discover [ROOT] [OPTIONS]
+```
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `ROOT` | argument | `.` | Root directory to scan for Helm charts |
+| `--env TEXT` | string | `production` | Target environment: `dev`, `staging`, `production` |
+| `--skip-ai` | flag | `false` | Skip AI context generation |
+| `--skip-external` | flag | `false` | Skip external tools |
+| `--no-security-scan` | flag | `false` | Disable security scan |
+| `--waivers TEXT` | string | — | Path to waivers YAML file |
+| `--output TEXT` | string | `terminal` | Output format: `terminal`, `json`, `markdown` |
+| `--output-file TEXT` | string | — | Write report to file |
+
+The command walks the directory tree looking for `Chart.yaml` files, skipping `.git`, `node_modules`, `vendor`, `__pycache__`, `.venv`, and similar non-project directories. Each discovered chart is analyzed independently, and a summary table is printed at the end.
+
+**Exit codes:** `0` if all charts pass, `1` if any chart is blocked. Charts that fail to render are reported as `ERROR` but do not block the others.
+
+#### Examples
+
+```bash
+# Scan current directory
+vlamguard discover . --skip-ai --skip-external
+
+# Scan a specific path with JSON output
+vlamguard discover ./infrastructure --output json
+
+# Write discovery report to file
+vlamguard discover . --skip-ai --output markdown --output-file report.md
+
+# Apply waivers across all discovered charts
+vlamguard discover . --waivers ./waivers.yaml --skip-ai
+```
+
+#### JSON Output Structure
+
+```json
+{
+  "charts": [
+    {"chart": "charts/app-a", "risk_score": 15, "risk_level": "low", "grade": "A", "blocked": false, "status": "PASS"},
+    {"chart": "charts/app-b", "risk_score": null, "risk_level": null, "grade": null, "blocked": false, "status": "ERROR"}
+  ],
+  "summary": {"total": 2, "passed": 1, "blocked": 0, "errors": 1}
+}
+```
+
 ### Output Formats
 
 **Terminal** (default) — Rich-formatted with colors, tables, and panels:
 - Risk score panel with color-coded severity
 - Policy checks table
 - Secrets findings with severity indicators
-- Hardening recommendations
-- AI analysis panel
+- Hardening recommendations with resource references and YAML hints
+- AI analysis panel with structured recommendations (action, reason, resource, YAML snippet)
+
+When `--output-file` is provided with terminal output, VlamGuard writes a markdown report to the file AND displays the Rich terminal output — dual output for both human review and persistent records.
 
 **JSON** — Full Pydantic model serialization. Suitable for `jq`, CI artifacts, or programmatic consumption.
 
@@ -327,7 +423,7 @@ vlamguard security-scan --chart ./my-chart --skip-ai --output json
 
 <a id="policy-checks-overview"></a>
 
-VlamGuard runs 22 policy checks organized into three categories. Each check is registered via a `@policy_check` decorator and runs against every applicable Kubernetes resource in your manifests.
+VlamGuard runs 79 policy checks organized across core categories and CRD ecosystems. Each check is registered via a `@policy_check` decorator and runs against every applicable Kubernetes resource in your manifests. The 22 original checks cover standard Kubernetes workloads; 14 additional P0 enterprise checks extend coverage for RBAC, networking, and compliance; and 43 CRD-aware checks cover KEDA, Argo CD, Istio, cert-manager, and External Secrets Operator.
 
 ### Security Checks
 
@@ -756,6 +852,8 @@ These checks enforce operational hygiene and forward-compatibility.
 
 ### Quick Reference Table
 
+#### Core Checks (1-22)
+
 | # | Check | Category | Severity | Points | Production | Other |
 |:-:|-------|----------|:--------:|:------:|:----------:|:-----:|
 | 1 | `image_tag` | Security | Critical | 25 | Hard block | Soft risk |
@@ -780,6 +878,111 @@ These checks enforce operational hygiene and forward-compatibility.
 | 20 | `excessive_capabilities` | Security | High | 20 | Soft risk | Off |
 | 21 | `service_account_token` | Security | Medium | 10 | Soft risk | Off |
 | 22 | `exposed_services` | Security | Medium | 15 | Soft risk | Off |
+
+#### P0 Enterprise Checks (23-36)
+
+| # | Check | Compliance | Severity | Points | Production | Other |
+|:-:|-------|-----------|:--------:|:------:|:----------:|:-----:|
+| 23 | `allow_privilege_escalation` | CIS-5.2.5, NSA-3.1 | Critical | 20 | Hard block | Soft risk |
+| 24 | `host_pid` | CIS-5.2.2 | Critical | 25 | Hard block | Soft risk |
+| 25 | `host_ipc` | CIS-5.2.3 | Critical | 25 | Hard block | Soft risk |
+| 26 | `default_namespace` | CIS-5.7.4 | Medium | 10 | Soft risk | Off |
+| 27 | `pod_security_standards` | CIS-5.2, NSA-3.1 | High | 25 | Soft risk | Off |
+| 28 | `drop_all_capabilities` | CIS-5.2.7, CIS-5.2.9, NSA-3.1 | High | 20 | Soft risk | Off |
+| 29 | `ingress_tls` | SOC2-CC6.6 | Medium | 15 | Soft risk | Off |
+| 30 | `host_port_restriction` | CIS-5.2.2 | Medium | 10 | Soft risk | Soft risk |
+| 31 | `rbac_wildcard_permissions` | CIS-5.1.3 | Critical | 0 | Hard block | Hard block |
+| 32 | `image_registry_allowlist` | SOC2-CC6.1 | Medium | 10 | Soft risk | Off |
+| 33 | `container_port_name` | — | Medium | 5 | Soft risk | Off |
+| 34 | `automount_service_account` | CIS-5.1.5 | Medium | 10 | Soft risk | Off |
+| 35 | `hpa_target_ref` | — | Medium | 10 | Soft risk | Off |
+| 36 | `resource_quota` | SOC2-CC7.2 | Medium | 10 | Soft risk | Off |
+
+> CRD-specific checks (KEDA, Argo CD, Istio, cert-manager, ESO) are listed in [CRD Policy Checks](#crd-policy-checks) below.
+
+---
+
+## CRD Policy Checks
+
+VlamGuard includes 43 CRD-aware checks that activate when the relevant custom resources are present in the rendered manifests. These checks are skipped silently when the corresponding CRD is not in use.
+
+### KEDA Checks
+
+14 checks for [KEDA](https://keda.sh/) `ScaledObject` and `ScaledJob` resources.
+
+| # | Check ID | Compliance | Severity | Points | Production | Other |
+|:-:|----------|-----------|:--------:|:------:|:----------:|:-----:|
+| 37 | `keda_min_replica_production` | SOC2-CC7.5 | High | 20 | Soft risk | Off |
+| 38 | `keda_fallback_required` | SOC2-CC7.5 | High | 20 | Soft risk | Off |
+| 39 | `keda_auth_ref_required` | CIS-5.4.1, SOC2-CC6.1 | High | 20 | Hard block | Soft risk |
+| 40 | `keda_hpa_ownership_validation` | — | High | 15 | Soft risk | Off |
+| 41 | `keda_max_replica_bound` | SOC2-CC7.2 | High | 15 | Soft risk | Off |
+| 42 | `keda_trigger_auth_secrets` | CIS-5.4.1, SOC2-CC6.1 | Critical | 25 | Hard block | Soft risk |
+| 43 | `keda_cooldown_period` | — | Medium | 10 | Soft risk | Off |
+| 44 | `keda_polling_interval` | — | Medium | 10 | Soft risk | Off |
+| 45 | `keda_fallback_replica_range` | — | Medium | 10 | Soft risk | Off |
+| 46 | `keda_restore_replicas_warning` | — | Medium | 10 | Soft risk | Off |
+| 47 | `keda_inline_secret_detection` | SOC2-CC6.1 | High | 20 | Soft risk | Soft risk |
+| 48 | `keda_initial_cooldown` | — | Medium | 10 | Soft risk | Off |
+| 49 | `keda_job_history_limits` | — | Medium | 10 | Soft risk | Off |
+| 50 | `keda_paused_annotation` | — | Medium | 10 | Soft risk | Off |
+
+### Argo CD Checks
+
+8 checks for [Argo CD](https://argo-cd.readthedocs.io/) `Application` and `AppProject` resources.
+
+| # | Check ID | Compliance | Severity | Points | Production | Other |
+|:-:|----------|-----------|:--------:|:------:|:----------:|:-----:|
+| 51 | `argocd_auto_sync_prune` | SOC2-CC7.5 | Medium | 15 | Soft risk | Off |
+| 52 | `argocd_sync_retry_configured` | — | Medium | 10 | Soft risk | Off |
+| 53 | `argocd_destination_not_in_cluster` | — | Medium | 15 | Soft risk | Soft risk |
+| 54 | `argocd_project_not_default` | — | High | 20 | Hard block | Soft risk |
+| 55 | `argocd_source_target_revision` | SLSA-L2, SOC2-CC8.1 | High | 20 | Soft risk | Off |
+| 56 | `argocd_project_wildcard_destination` | CIS-5.1.1, SOC2-CC6.3 | Critical | 0 | Hard block | Hard block |
+| 57 | `argocd_project_wildcard_source` | SLSA-L2, SOC2-CC8.1 | High | 20 | Soft risk | Off |
+| 58 | `argocd_project_cluster_resources` | CIS-5.1.3, SOC2-CC6.3 | High | 20 | Soft risk | Off |
+
+### Istio Checks
+
+10 checks for [Istio](https://istio.io/) `VirtualService`, `DestinationRule`, `PeerAuthentication`, `AuthorizationPolicy`, and `Gateway` resources.
+
+| # | Check ID | Compliance | Severity | Points | Production | Other |
+|:-:|----------|-----------|:--------:|:------:|:----------:|:-----:|
+| 59 | `istio_virtualservice_timeout` | SOC2-CC7.5 | Medium | 10 | Soft risk | Off |
+| 60 | `istio_virtualservice_retries` | SOC2-CC7.5 | Medium | 10 | Soft risk | Off |
+| 61 | `istio_virtualservice_fault_injection_production` | SOC2-CC7.2 | High | 20 | Hard block | Soft risk |
+| 62 | `istio_destination_rule_tls` | CIS-5.2.1, NIST-SC-8, SOC2-CC6.7 | High | 20 | Soft risk | Off |
+| 63 | `istio_destination_rule_outlier_detection` | SOC2-CC7.5 | Medium | 10 | Soft risk | Off |
+| 64 | `istio_destination_rule_connection_pool` | SOC2-CC7.2 | Medium | 10 | Soft risk | Off |
+| 65 | `istio_peer_auth_strict_mtls` | CIS-5.2.2, NIST-SC-8, SOC2-CC6.7 | Critical | 25 | Hard block | Soft risk |
+| 66 | `istio_authz_no_allow_all` | CIS-5.2.4, NIST-AC-3, SOC2-CC6.1 | Critical | 25 | Hard block | Soft risk |
+| 67 | `istio_gateway_tls_required` | CIS-5.2.3, NIST-SC-8, SOC2-CC6.7 | High | 20 | Soft risk | Off |
+| 68 | `istio_gateway_wildcard_host` | SOC2-CC6.6 | Medium | 15 | Soft risk | Off |
+
+### cert-manager Checks
+
+6 checks for [cert-manager](https://cert-manager.io/) `Certificate`, `Issuer`, and `ClusterIssuer` resources.
+
+| # | Check ID | Compliance | Severity | Points | Production | Other |
+|:-:|----------|-----------|:--------:|:------:|:----------:|:-----:|
+| 69 | `certmgr_certificate_duration` | SOC2-CC7.2 | Medium | 10 | Soft risk | Soft risk |
+| 70 | `certmgr_certificate_renew_before` | SOC2-CC7.2 | Medium | 10 | Soft risk | Soft risk |
+| 71 | `certmgr_certificate_private_key_algorithm` | CIS-5.4.1, SOC2-CC6.1 | High | 20 | Soft risk | Soft risk |
+| 72 | `certmgr_certificate_wildcard_production` | SOC2-CC6.1 | Medium | 15 | Soft risk | Off |
+| 73 | `certmgr_issuer_solver_configured` | SOC2-CC7.2 | High | 20 | Hard block | Soft risk |
+| 74 | `certmgr_issuer_staging_in_production` | SOC2-CC6.1 | High | 20 | Hard block | Soft risk |
+
+### External Secrets Operator Checks
+
+5 checks for [External Secrets Operator](https://external-secrets.io/) `ExternalSecret`, `SecretStore`, and `ClusterSecretStore` resources.
+
+| # | Check ID | Compliance | Severity | Points | Production | Other |
+|:-:|----------|-----------|:--------:|:------:|:----------:|:-----:|
+| 75 | `eso_external_secret_refresh_interval` | SOC2-CC7.2 | Medium | 10 | Soft risk | Soft risk |
+| 76 | `eso_external_secret_target_creation` | SOC2-CC7.2 | Medium | 10 | Soft risk | Soft risk |
+| 77 | `eso_external_secret_deletion_policy` | SOC2-CC7.2 | Medium | 10 | Soft risk | Soft risk |
+| 78 | `eso_secret_store_provider` | CIS-5.4.1, SOC2-CC6.1 | High | 20 | Hard block | Soft risk |
+| 79 | `eso_cluster_secret_store_conditions` | SOC2-CC6.1 | Medium | 15 | Soft risk | Soft risk |
 
 ---
 
@@ -870,6 +1073,72 @@ The security grade is a deterministic F-to-A cascade — the first matching cond
 
 ---
 
+## Waiver Workflow
+
+VlamGuard supports a waiver system that allows downgrading hard blocks to soft risks with an audit trail. Useful for known issues, migration periods, or approved exceptions.
+
+### Waiver File Format
+
+Create a YAML file with waiver entries:
+
+```yaml
+waivers:
+  - check_id: image_tag
+    resource_name: legacy-app
+    reason: "Legacy app uses custom tag scheme, migration planned for Q2"
+    approved_by: "security-team"
+    expires: "2026-06-01"
+
+  - check_id: security_context
+    resource_name: debug-tools
+    reason: "Debug container needs privileged access in staging"
+    approved_by: "platform-lead"
+```
+
+### Usage
+
+```bash
+# Apply waivers during analysis
+vlamguard check --chart ./my-chart --waivers ./waivers.yaml --skip-ai
+
+# Waivers also work with security-scan
+vlamguard security-scan --chart ./my-chart --waivers ./waivers.yaml
+```
+
+### How It Works
+
+- Waivers match by `check_id` and optionally `resource_name`
+- A waived hard block becomes a **soft risk** instead
+- Waived checks appear in the report with their waiver reason
+- The `waivers_applied` field in JSON output lists all active waivers
+
+---
+
+## Compliance Mapping
+
+Every policy check is tagged with compliance framework references. VlamGuard maps checks to:
+
+- **CIS Kubernetes Benchmark** — Center for Internet Security controls
+- **NSA Kubernetes Hardening Guide** — National Security Agency recommendations
+- **SOC 2** — Service Organization Control trust services criteria
+
+### CLI
+
+```bash
+# View all checks with compliance tags
+vlamguard compliance
+
+# Filter by framework
+vlamguard compliance --framework CIS
+vlamguard compliance --framework NSA
+vlamguard compliance --framework SOC2
+
+# JSON output for tooling
+vlamguard compliance --output json
+```
+
+---
+
 ## External Tools
 
 VlamGuard integrates with three established Kubernetes validation tools. Each runs as a subprocess; when a tool is not installed, VlamGuard silently skips it.
@@ -887,7 +1156,7 @@ External tool findings appear in a dedicated section of the report. Polaris prov
 vlamguard check --chart ./my-chart --skip-external
 ```
 
-> **Install all three** to get the richest analysis. VlamGuard's own 22 checks always run regardless.
+> **Install all three** to get the richest analysis. VlamGuard's own 79 checks always run regardless.
 
 ---
 
@@ -897,9 +1166,30 @@ VlamGuard can call any OpenAI-compatible API to generate natural-language analys
 
 - **Summary** — 2-3 sentence overview of the deployment risk
 - **Impact analysis** — per-resource severity breakdown
-- **Recommendations** — actionable steps to remediate findings
+- **Recommendations** — structured actionable steps with:
+  - `action` — what to do
+  - `reason` — AI explanation of *why* this recommendation matters (security/reliability risk)
+  - `resource` — target Kubernetes resource (e.g. `Deployment/web`)
+  - `yaml_snippet` — exact YAML change to apply
 - **Rollback suggestion** — what to do if the deployment goes wrong
-- **Hardening recommendations** (security scan only) — prioritized security improvements with effort estimates and YAML hints
+- **Hardening recommendations** (security scan only) — prioritized security improvements with effort estimates, resource references, and YAML hints
+
+#### Example AI Recommendation Output
+
+```
+Recommendations:
+  1. Set security context for the container. (Deployment/web)
+     Running as root allows container escape attacks and host filesystem access.
+     securityContext:
+       runAsNonRoot: true
+       allowPrivilegeEscalation: false
+  2. Define resource limits. (Deployment/web)
+     Without limits, a single pod can consume all node resources and starve other workloads.
+     resources:
+       limits:
+         cpu: 500m
+         memory: 512Mi
+```
 
 ### Privacy & Safety
 
@@ -958,7 +1248,8 @@ Full analysis pipeline.
   "environment": "production",
   "skip_ai": false,
   "skip_external": false,
-  "security_scan": true
+  "security_scan": true,
+  "waivers_path": "./waivers.yaml"
 }
 ```
 
@@ -971,6 +1262,7 @@ Full analysis pipeline.
 | `skip_ai` | bool | No | false | Skip AI context |
 | `skip_external` | bool | No | false | Skip external tools |
 | `security_scan` | bool | No | true | Enable security scan layer |
+| `waivers_path` | string / null | No | null | Path to waiver YAML file |
 
 **Response:**
 
@@ -1006,7 +1298,15 @@ Full analysis pipeline.
   "ai_context": {
     "summary": "This deployment has critical security issues...",
     "impact_analysis": [...],
-    "recommendations": [...],
+    "recommendations": [
+      "Pin image tag to specific version.",
+      {
+        "action": "Set runAsNonRoot: true",
+        "reason": "Running as root allows container escape attacks.",
+        "resource": "Deployment/my-app",
+        "yaml_snippet": "securityContext:\n  runAsNonRoot: true"
+      }
+    ],
     "rollback_suggestion": "kubectl rollout undo deployment/my-app"
   },
   "metadata": {
@@ -1129,7 +1429,7 @@ The Docker image includes Helm, kube-score, KubeLinter, and Polaris pre-installe
 Published images are available from GitHub Container Registry:
 
 ```bash
-docker pull ghcr.io/elky-bachtiar/vlamguard:v1.0.0
+docker pull ghcr.io/elky-bachtiar/vlamguard:v1.0.0-alpha.1
 docker pull ghcr.io/elky-bachtiar/vlamguard:latest
 ```
 
@@ -1148,7 +1448,7 @@ helm install vlamguard charts/vlamguard/ \
   --set ai.apiKeySecret.apiKey="sk-..."
 ```
 
-The chart's default Deployment passes all 22 VlamGuard policy checks with a grade A.
+The chart's default Deployment passes all 79 VlamGuard policy checks with a grade A.
 
 ---
 
@@ -1158,21 +1458,27 @@ The chart's default Deployment passes all 22 VlamGuard policy checks with a grad
 bash demo/run_demo.sh
 ```
 
-Seven scenarios:
+Each scenario outputs both Rich terminal display and a persistent markdown report to `demo/reports/`.
+
+Eleven scenarios:
 1. **Clean deploy** — passes all checks
 2. **Evident risks** — obvious violations
 3. **Subtle impact** — edge cases
 4. **Best-practice violations** — medium-severity issues
 5. **Hardened deployment** — fully compliant
 6. **Self-analysis** — VlamGuard's own Helm chart
-7. **Polaris comparison** — score benchmark
+7. **Polaris comparison** — score benchmark (requires external tools)
+8. **CRD ecosystem** — KEDA, Istio, Argo CD, cert-manager, ESO validation
+9. **Waiver workflow** — hard block downgrade demonstration
+10. **Compliance map** — CIS/NSA/SOC2 framework listing
+11. **AI-enhanced recommendations** — structured recommendations with reasons, resource references, and YAML snippets (requires AI endpoint)
 
 ---
 
 ## Running Tests
 
 ```bash
-uv run pytest                 # All tests (346+)
+uv run pytest                 # All tests (1116)
 uv run pytest --cov           # With coverage
 uv run pytest tests/unit/     # Unit + integration
 uv run pytest tests/e2e/      # E2E CLI tests (requires Helm)

@@ -479,6 +479,30 @@ class TestOutputResponse:
         _output_response(response, "markdown", out_file)
         assert Path(out_file).exists()
 
+    def test_terminal_output_with_file_writes_markdown_and_prints(self, tmp_path):
+        """When output=terminal and output_file is set, Rich terminal output is printed
+        AND a markdown report is written to the file."""
+        from vlamguard.cli import _output_response
+
+        response = self._make_response()
+        out_file = str(tmp_path / "dual.md")
+        with patch("vlamguard.cli.print_report") as mock_print:
+            _output_response(response, "terminal", out_file)
+        mock_print.assert_called_once()
+        content = Path(out_file).read_text()
+        assert "VlamGuard Risk Report" in content
+        assert "PASSED" in content
+
+    def test_terminal_output_without_file_no_write(self, tmp_path):
+        """When output=terminal and output_file is None, no file is written."""
+        from vlamguard.cli import _output_response
+
+        response = self._make_response()
+        with patch("vlamguard.cli.print_report"):
+            _output_response(response, "terminal", None)
+        # No files created in tmp_path
+        assert list(tmp_path.iterdir()) == []
+
 
 # ---------------------------------------------------------------------------
 # _analyze_manifests

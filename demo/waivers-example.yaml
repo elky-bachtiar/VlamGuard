@@ -1,0 +1,13 @@
+# Example waiver file for VlamGuard
+# Waivers downgrade hard_block to soft_risk — they never suppress findings.
+# Use with: vlamguard check --manifests <file> --waivers demo/waivers-example.yaml
+waivers:
+  - check_id: image_tag
+    reason: "Legacy image requires latest tag during migration period"
+    approved_by: "security-team@example.com"
+    expires: "2026-06-01T00:00:00"
+
+  - check_id: security_context
+    reason: "Privileged container required for node agent — approved by SRE lead"
+    approved_by: "sre-lead@example.com"
+    expires: "2026-09-01T00:00:00"

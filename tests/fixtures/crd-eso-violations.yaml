@@ -1,0 +1,39 @@
+# External Secrets Operator CRD violations fixture — triggers all 5 ESO checks
+---
+apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata:
+  name: bad-external-secret
+  namespace: production
+spec:
+  # eso_external_secret_refresh_interval: disabled (0)
+  refreshInterval: "0"
+  secretStoreRef:
+    name: my-store
+    kind: SecretStore
+  target:
+    name: my-secret
+    # eso_external_secret_target_creation: absent
+    # eso_external_secret_deletion_policy: absent
+  data:
+    - secretKey: password
+      remoteRef:
+        key: /prod/db/password
+---
+apiVersion: external-secrets.io/v1beta1
+kind: SecretStore
+metadata:
+  name: bad-secret-store
+  namespace: production
+spec:
+  # eso_secret_store_provider: empty provider
+  provider: {}
+---
+apiVersion: external-secrets.io/v1beta1
+kind: ClusterSecretStore
+metadata:
+  name: bad-cluster-secret-store
+spec:
+  # eso_secret_store_provider: no provider at all
+  # eso_cluster_secret_store_conditions: no conditions or namespaceSelector
+  provider: {}
