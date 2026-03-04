@@ -10,7 +10,7 @@ from vlamguard.models.response import AnalyzeResponse
 app = FastAPI(
     title="VlamGuard",
     description="Intelligent change risk engine for infrastructure changes",
-    version="0.1.0",
+    version="1.0.0a1",
 )
 
 

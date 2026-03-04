@@ -87,12 +87,14 @@ async def analyze(request: AnalyzeRequest) -> AnalyzeResponse:
                 policy_results=all_results,
                 secrets_result=secrets_result,
                 environment=request.environment,
+                external_findings=external_findings,
             )
         else:
             ai_context = await get_ai_context(
                 manifests_metadata=manifests_metadata,
                 policy_results=all_results,
                 environment=request.environment,
+                external_findings=external_findings,
             )
 
     # Apply AI context to secrets findings if available

@@ -134,7 +134,7 @@ Helm render → 79 Policy Checks → Secrets Detection → Risk Scoring → Exte
 
 Secrets detection feeds directly into risk scoring: confirmed secrets in production trigger hard blocks (score=100), while hard-pattern matches in non-production environments add +30 to the soft risk score per finding.
 
-External tools run after scoring and before AI analysis. Their findings appear in a dedicated "External Tool Findings" section in the report. Polaris provides a compliance score shown side-by-side with VlamGuard's risk score.
+External tools run after scoring and before AI analysis. Their findings appear in a dedicated "External Tool Findings" section in the report and are passed to the AI context layer, so the AI can explain and recommend fixes for external tool findings (e.g. missing NetworkPolicy, ephemeral storage limits, PodDisruptionBudget). Polaris provides a compliance score shown side-by-side with VlamGuard's risk score.
 
 ### What VlamGuard adds
 
@@ -245,11 +245,16 @@ docker compose up --build
 
 The Docker image includes Helm, kube-score, KubeLinter, and Polaris pre-installed. The API server runs on `http://localhost:8000`.
 
-Published images are available from GitHub Container Registry:
+Published images are available from GitHub Container Registry and Docker Hub:
 
 ```bash
+# GitHub Container Registry
 docker pull ghcr.io/elky-bachtiar/vlamguard:v1.0.0-alpha.1
 docker pull ghcr.io/elky-bachtiar/vlamguard:latest
+
+# Docker Hub
+docker pull vlamguard/vlamguard:v1.0.0-alpha.1
+docker pull vlamguard/vlamguard:latest
 ```
 
 ## CI/CD Integration
@@ -286,7 +291,7 @@ Run all demo scenarios:
 bash demo/run_demo.sh
 ```
 
-Eleven scenarios covering clean deploys, evident risks, subtle impacts, best-practice violations, hardened deployments, self-analysis, Polaris score comparison, CRD ecosystem checks, waiver workflow, compliance mapping, and AI-enhanced recommendations.
+Twelve scenarios covering clean deploys, evident risks, subtle impacts, best-practice violations, hardened deployments, self-analysis, Polaris score comparison, CRD ecosystem checks, waiver workflow, compliance mapping, AI-enhanced recommendations, and external tools + AI integration.
 
 Each scenario outputs both Rich terminal display and a persistent markdown report to `demo/reports/`.
 

@@ -3,7 +3,7 @@ name: vlamguard
 description: A Helm chart for VlamGuard — Kubernetes manifest policy analysis
 type: application
 version: 1.0.0
-appVersion: "1.0.0"
+appVersion: "1.0.0-alpha.1"
 keywords:
   - vlamguard
   - policy
@@ -12,3 +12,8 @@ keywords:
 home: https://github.com/elky-bachtiar/VlamGuard
 maintainers:
   - name: VlamGuard
+annotations:
+  artifacthub.io/changes: |
+    - kind: added
+      description: "Enterprise readiness alpha with 79 policy checks"
+  artifacthub.io/license: Apache-2.0

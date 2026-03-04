@@ -46,6 +46,8 @@ def run_kube_score(manifests_yaml: str) -> list[ExternalFinding]:
             return []
 
         data = json.loads(result.stdout)
+        if not data:
+            return []
         findings: list[ExternalFinding] = []
 
         for obj in data:

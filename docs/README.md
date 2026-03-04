@@ -193,6 +193,7 @@ Every analysis follows this sequence:
                     +--------+----------+
                              |
                     Step 6   |  AI Context (optional)
+                             |  receives policy results + external findings
                              v
                     +-------------------+
                     | AI Analysis       |  summary, impact, recommendations
@@ -1151,6 +1152,8 @@ VlamGuard integrates with three established Kubernetes validation tools. Each ru
 
 External tool findings appear in a dedicated section of the report. Polaris provides a compliance score shown side-by-side with VlamGuard's own risk score.
 
+When the AI context layer is enabled, external tool findings are passed to the AI alongside VlamGuard's own policy results. This means the AI can explain and recommend fixes for issues detected by external tools (e.g. missing NetworkPolicy from kube-score, PodDisruptionBudget from Polaris) — not just VlamGuard's own checks.
+
 ```bash
 # Skip external tools
 vlamguard check --chart ./my-chart --skip-external
@@ -1162,11 +1165,11 @@ vlamguard check --chart ./my-chart --skip-external
 
 ## AI Context Layer
 
-VlamGuard can call any OpenAI-compatible API to generate natural-language analysis. The AI layer provides:
+VlamGuard can call any OpenAI-compatible API to generate natural-language analysis. The AI receives VlamGuard's policy results and, when external tools are available, their findings too (kube-score, KubeLinter, Polaris). The AI layer provides:
 
 - **Summary** — 2-3 sentence overview of the deployment risk
 - **Impact analysis** — per-resource severity breakdown
-- **Recommendations** — structured actionable steps with:
+- **Recommendations** — structured actionable steps (covering both VlamGuard and external tool findings) with:
   - `action` — what to do
   - `reason` — AI explanation of *why* this recommendation matters (security/reliability risk)
   - `resource` — target Kubernetes resource (e.g. `Deployment/web`)
@@ -1426,11 +1429,16 @@ docker compose up --build
 
 The Docker image includes Helm, kube-score, KubeLinter, and Polaris pre-installed. The API server runs on port 8000.
 
-Published images are available from GitHub Container Registry:
+Published images are available from GitHub Container Registry and Docker Hub:
 
 ```bash
+# GitHub Container Registry
 docker pull ghcr.io/elky-bachtiar/vlamguard:v1.0.0-alpha.1
 docker pull ghcr.io/elky-bachtiar/vlamguard:latest
+
+# Docker Hub
+docker pull vlamguard/vlamguard:v1.0.0-alpha.1
+docker pull vlamguard/vlamguard:latest
 ```
 
 ### Helm (self-deploy)
@@ -1460,7 +1468,7 @@ bash demo/run_demo.sh
 
 Each scenario outputs both Rich terminal display and a persistent markdown report to `demo/reports/`.
 
-Eleven scenarios:
+Twelve scenarios:
 1. **Clean deploy** — passes all checks
 2. **Evident risks** — obvious violations
 3. **Subtle impact** — edge cases
@@ -1472,6 +1480,7 @@ Eleven scenarios:
 9. **Waiver workflow** — hard block downgrade demonstration
 10. **Compliance map** — CIS/NSA/SOC2 framework listing
 11. **AI-enhanced recommendations** — structured recommendations with reasons, resource references, and YAML snippets (requires AI endpoint)
+12. **External tools + AI integration** — AI explains external tool findings from kube-score and Polaris (requires both external tools and AI endpoint)
 
 ---
 

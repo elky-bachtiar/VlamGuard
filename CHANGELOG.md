@@ -8,6 +8,14 @@ Enterprise readiness alpha release.
 
 ### Features
 
+#### AI-Integrated External Tool Findings
+
+- External tool findings (kube-score, KubeLinter, Polaris) are now passed to the AI context layer
+- AI can explain and recommend fixes for issues detected by external tools (e.g. missing NetworkPolicy, ephemeral storage limits, PodDisruptionBudget, label mismatches)
+- Both system prompts (`_SYSTEM_PROMPT` and `_SECURITY_SYSTEM_PROMPT`) updated to instruct the AI to cover external tool findings in its recommendations
+- External findings included as `external_tool_findings` array in the AI prompt data when present
+- No-op when external tools are skipped or produce no findings — fully backward compatible
+
 #### Structured AI Recommendations
 
 - AI recommendations are now structured objects with `action`, `reason`, `resource`, and `yaml_snippet` fields
@@ -23,7 +31,7 @@ Enterprise readiness alpha release.
 #### Dual Output Mode
 
 - `--output-file` with terminal output now writes a markdown report AND displays Rich terminal output simultaneously
-- Demo script updated: all 11 scenarios save markdown reports to `demo/reports/` alongside terminal display
+- Demo script updated: all 12 scenarios save markdown reports to `demo/reports/` alongside terminal display
 
 #### Policy Engine — 79 checks (was 22)
 
@@ -87,12 +95,18 @@ Enterprise readiness alpha release.
 - `--framework <cis|nsa|soc2>` filter narrows output to checks relevant to a single framework
 - Compliance summary included in JSON and markdown report output
 
+#### Demo Scenario 12: External Tools + AI Integration
+
+- New demo scenario showing AI-explained external tool findings
+- Three sub-scenarios (evident risk, subtle impact, hardened) when both external tools and AI endpoint are available
+- Graceful fallback when only external tools or only AI are available
+
 #### Existing Features (carried forward from 1.0.0)
 
 - Secrets detection engine: regex hard patterns + Shannon entropy + soft heuristics; environment-aware blocking
 - Security grading (A-F) via deterministic cascade
 - AI context layer (OpenAI-compatible): impact analysis, recommendations, rollback suggestions; manifests never sent raw
-- External tool integration: kube-score, KubeLinter, Polaris with graceful degradation
+- External tool integration: kube-score, KubeLinter, Polaris with graceful degradation; findings fed to AI
 - CLI (`vlamguard check`, `vlamguard security-scan`, `vlamguard discover`) with terminal/JSON/markdown output and CI-friendly exit codes
 - FastAPI server (`POST /api/v1/analyze`, `GET /health`)
 - Standalone binaries for Linux (amd64), macOS (Intel + Apple Silicon), Windows
@@ -101,8 +115,8 @@ Enterprise readiness alpha release.
 
 ### Documentation
 
-- Updated README with full 79-check policy reference, waiver workflow guide, compliance command usage, `discover` command examples, structured AI recommendations example, and dual output mode
-- Extended `docs/README.md`: CRD ecosystem sections (KEDA, Istio, Argo CD, cert-manager, ESO), waiver schema reference, compliance framework mapping table, `vlamguard discover` CLI reference with JSON output schema, AI recommendation example output, updated demo section (11 scenarios)
+- Updated README with full 79-check policy reference, waiver workflow guide, compliance command usage, `discover` command examples, structured AI recommendations example, dual output mode, and external tools + AI integration
+- Extended `docs/README.md`: CRD ecosystem sections (KEDA, Istio, Argo CD, cert-manager, ESO), waiver schema reference, compliance framework mapping table, `vlamguard discover` CLI reference with JSON output schema, AI recommendation example output, updated demo section (12 scenarios), external tool findings in AI context
 - Added `docs/waivers.md` with waiver YAML schema, examples, and expiry semantics
 - Added `docs/compliance.md` with CIS/NSA/SOC2 control cross-reference table
 
@@ -114,3 +128,7 @@ Enterprise readiness alpha release.
 - Waiver workflow tests: valid waivers, expired waivers, malformed schemas, audit trail assertions
 - Compliance command tests: framework filter output, tag presence on every registered check
 - CRD ecosystem tests use fixture manifests covering valid and invalid configurations for each check
+
+### Bug Fixes
+
+- Fixed crash in `run_kube_score()` when kube-score returns JSON `null` for certain manifests (e.g. CRD-only inputs); added guard for `None` result after `json.loads()`

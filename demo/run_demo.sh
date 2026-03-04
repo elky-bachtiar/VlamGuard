@@ -197,6 +197,62 @@ else
   echo ""
 fi
 
+# Scenario 12: External Tools + AI Integration
+echo -e "${BLUE}━━━ Scenario 12: External Tools + AI Integration ━━━${NC}"
+echo "When external tools (kube-score, Polaris) and AI are both available, VlamGuard"
+echo "passes external tool findings to the AI — so the AI explains and recommends fixes"
+echo "for issues found by kube-score (e.g. ephemeral storage, NetworkPolicy) and Polaris"
+echo "(e.g. PodDisruptionBudget, label mismatches)."
+echo ""
+
+if [ -z "${EXTERNAL_FLAGS}" ] && [ -n "${VLAM_AI_BASE_URL:-}" ]; then
+  echo -e "${GREEN}Both external tools and AI detected — running full integration:${NC}"
+  echo ""
+
+  echo -e "${RED}12a. Evident risk — AI explains external tool findings:${NC}"
+  echo "External tools detect issues VlamGuard doesn't check (ephemeral storage, NetworkPolicy,"
+  echo "PodDisruptionBudget). The AI now receives these findings and explains them."
+  echo ""
+  ${VLAMGUARD} check --manifests "${FIXTURES}/evident-risk.yaml" --env production --output-file "${REPORTS}/12a-external-ai-evident-risk.md" || true
+  echo ""
+
+  echo -e "${YELLOW}12b. Subtle impact — external tools + AI on borderline manifest:${NC}"
+  echo "VlamGuard flags the single replica. External tools may add more context."
+  echo "AI synthesizes both VlamGuard and external findings into a unified analysis."
+  echo ""
+  ${VLAMGUARD} check --manifests "${FIXTURES}/subtle-impact.yaml" --env production --output-file "${REPORTS}/12b-external-ai-subtle-impact.md" || true
+  echo ""
+
+  echo -e "${GREEN}12c. Hardened chart — external tools + AI confirm clean state:${NC}"
+  echo "Both engines agree: zero or minimal findings. AI confirms readiness."
+  echo ""
+  ${VLAMGUARD} check --chart "${DEMO_CHARTS}/hardened" --env production --output-file "${REPORTS}/12c-external-ai-hardened.md" || true
+  echo ""
+
+elif [ -z "${EXTERNAL_FLAGS}" ]; then
+  echo -e "${YELLOW}External tools available but no AI endpoint configured.${NC}"
+  echo "Set VLAM_AI_BASE_URL to see AI-explained external tool findings."
+  echo "Example: export VLAM_AI_BASE_URL=http://localhost:11434/v1"
+  echo ""
+  echo "Running external tools only (no AI) for comparison:"
+  echo ""
+  ${VLAMGUARD} check --manifests "${FIXTURES}/evident-risk.yaml" --env production --skip-ai --output-file "${REPORTS}/12a-external-only-evident-risk.md" || true
+  echo ""
+
+elif [ -n "${VLAM_AI_BASE_URL:-}" ]; then
+  echo -e "${YELLOW}AI endpoint configured but no external tools found.${NC}"
+  echo "Install kube-score, polaris, or kube-linter to see external findings in AI analysis."
+  echo "  brew install kube-score polaris"
+  echo ""
+
+else
+  echo -e "${YELLOW}Neither external tools nor AI endpoint available.${NC}"
+  echo "For the full demo, install external tools and configure an AI endpoint:"
+  echo "  brew install kube-score polaris"
+  echo "  export VLAM_AI_BASE_URL=http://localhost:11434/v1"
+  echo ""
+fi
+
 echo "============================================"
 echo -e "  Demo Complete — Reports saved to ${CYAN}demo/reports/${NC}"
 echo "============================================"
