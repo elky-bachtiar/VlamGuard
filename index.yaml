@@ -8,9 +8,9 @@ entries:
       artifacthub.io/license: Apache-2.0
     apiVersion: v2
     appVersion: 1.0.0-alpha.1
-    created: "2026-03-04T13:32:17.347960136Z"
+    created: "2026-03-04T13:34:27.526965614Z"
     description: A Helm chart for VlamGuard — Kubernetes manifest policy analysis
-    digest: 1b41c2a3595d49ffdf4d8f11e6d24f8e3fe4b5825cfce6b6da07b40d507b5e46
+    digest: 3f8e30cae6a01d46a2e94c6474dcfc852b5d109b6ee6fb23a729a18ca0b1a864
     home: https://github.com/elky-bachtiar/VlamGuard
     keywords:
     - vlamguard
@@ -24,4 +24,4 @@ entries:
     urls:
     - https://elky-bachtiar.github.io/VlamGuard/vlamguard-1.0.0.tgz
     version: 1.0.0
-generated: "2026-03-04T13:32:17.347290183Z"
+generated: "2026-03-04T13:34:27.52634105Z"
