@@ -1,5 +1,7 @@
 """Tests for AI security schema validation."""
 
+from unittest.mock import patch
+
 from vlamguard.ai.schemas import validate_ai_response, validate_security_ai_response
 
 
@@ -98,3 +100,104 @@ class TestSecuritySchemaValidation:
         assert validate_security_ai_response("not a dict") is None
         assert validate_security_ai_response(42) is None
         assert validate_security_ai_response(None) is None
+
+    # --- Lines 107-108: Pydantic construction error after JSON Schema passes ---
+
+    def test_validate_ai_response_returns_none_when_pydantic_construction_fails(self):
+        """JSON Schema passes (mocked), but ImpactItem(**item) raises TypeError when item
+        is not a dict. This exercises the except branch at lines 107-108."""
+        data = {
+            "summary": "Valid summary.",
+            "impact_analysis": ["not-a-dict"],  # passes schema when schema is mocked, breaks **item
+            "recommendations": ["Do something."],
+            "rollback_suggestion": "kubectl rollout undo",
+        }
+        with patch("vlamguard.ai.schemas.jsonschema.validate"):
+            result = validate_ai_response(data)
+        assert result is None
+
+    def test_validate_ai_response_returns_none_when_impact_item_missing_field(self):
+        """JSON Schema passes (mocked), but ImpactItem construction fails because a
+        required field is missing. Exercises the except branch at lines 107-108."""
+        data = {
+            "summary": "Valid summary.",
+            # impact_analysis item missing 'resource' and 'description' — Pydantic raises ValidationError
+            "impact_analysis": [{"severity": "high"}],
+            "recommendations": ["Do something."],
+            "rollback_suggestion": "kubectl rollout undo",
+        }
+        with patch("vlamguard.ai.schemas.jsonschema.validate"):
+            result = validate_ai_response(data)
+        assert result is None
+
+    # --- Lines 140-141: HardeningAction construction error → continue ---
+
+    def test_validate_security_ai_response_skips_malformed_hardening_items(self):
+        """A hardening item that is not a dict causes KeyError on item["priority"],
+        hitting the except/continue at lines 140-141. Valid items are still returned."""
+        data = {
+            "hardening_recommendations": [
+                {
+                    "priority": 1,
+                    "category": "container",
+                    "action": "Set readOnlyRootFilesystem",
+                    "effort": "low",
+                    "impact": "high",
+                },
+                "not-a-dict",  # triggers KeyError in item["priority"] → continue
+                {
+                    "priority": 3,
+                    "category": "network",
+                    "action": "Add NetworkPolicy",
+                    "effort": "medium",
+                    "impact": "high",
+                },
+            ]
+        }
+        result = validate_security_ai_response(data)
+        assert result is not None
+        recs = result["hardening_recommendations"]
+        # Only the two valid items survive; the malformed one was skipped
+        assert len(recs) == 2
+        assert recs[0].priority == 1
+        assert recs[1].priority == 3
+
+    def test_validate_security_ai_response_skips_item_missing_required_fields(self):
+        """A hardening item missing required fields causes KeyError, hitting the
+        except/continue branch at lines 140-141."""
+        data = {
+            "hardening_recommendations": [
+                # Missing 'effort' and 'impact' — KeyError on item["effort"]
+                {
+                    "priority": 1,
+                    "category": "container",
+                    "action": "Set runAsNonRoot",
+                },
+                {
+                    "priority": 2,
+                    "category": "operational",
+                    "action": "Add liveness probe",
+                    "effort": "low",
+                    "impact": "medium",
+                },
+            ]
+        }
+        result = validate_security_ai_response(data)
+        assert result is not None
+        recs = result["hardening_recommendations"]
+        assert len(recs) == 1
+        assert recs[0].priority == 2
+
+    def test_validate_security_ai_response_all_hardening_items_malformed_returns_empty_list(self):
+        """When every hardening item is malformed the list is empty, but the key is still
+        present and the result dict is non-None (because hardening_recommendations key exists)."""
+        data = {
+            "hardening_recommendations": [
+                "bad-item-1",
+                "bad-item-2",
+            ]
+        }
+        result = validate_security_ai_response(data)
+        # result dict still has the key (with empty list) so it is not None
+        assert result is not None
+        assert result["hardening_recommendations"] == []

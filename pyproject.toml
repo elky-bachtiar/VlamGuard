@@ -1,10 +1,10 @@
 [project]
 name = "vlamguard"
-version = "0.1.0"
+version = "1.0.0"
 description = "Intelligent change risk engine for infrastructure changes"
 readme = "README.md"
 authors = [
-    { name = "iam-dev", email = "affiliaps@gmail.com" }
+    { name = "Elky Bachtiar", email = "bachtiare@gmail.com" }
 ]
 requires-python = ">=3.12"
 dependencies = [
@@ -17,6 +17,7 @@ dependencies = [
     "pydantic>=2.10.0",
     "jsonschema>=4.23.0",
     "detect-secrets>=1.5.0",
+    "python-dotenv>=1.0.0",
 ]
 
 [project.scripts]

@@ -1,0 +1,114 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --frozen --dev
+
+      - name: Run ruff (if configured)
+        run: |
+          if grep -q '\[tool\.ruff\]' pyproject.toml 2>/dev/null; then
+            uv run ruff check .
+          else
+            echo "ruff not configured — skipping lint step"
+          fi
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install Helm 3
+        uses: azure/setup-helm@v4
+        with:
+          version: "3.17.0"
+
+      - name: Install dependencies
+        run: uv sync --frozen --dev
+
+      - name: Run tests with coverage
+        run: uv run pytest --cov=src/vlamguard --cov-fail-under=95 -q
+
+  security:
+    name: Security Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --frozen --dev
+
+      - name: Run security unit tests
+        run: |
+          uv run pytest \
+            tests/unit/test_secrets.py \
+            tests/unit/test_security_analyze.py \
+            -q
+
+  build:
+    name: Build Docker Image
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check Dockerfile exists
+        id: dockerfile_check
+        run: |
+          if [ -f Dockerfile ]; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "Dockerfile not found — skipping build"
+          fi
+
+      - name: Build Docker image
+        if: steps.dockerfile_check.outputs.exists == 'true'
+        env:
+          IMAGE_TAG: ${{ github.sha }}
+        run: docker build -t "vlamguard:${IMAGE_TAG}" .

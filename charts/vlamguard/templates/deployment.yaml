@@ -59,13 +59,13 @@ spec:
           envFrom:
             - configMapRef:
                 name: {{ include "vlamguard.fullname" . }}
-          {{- if .Values.ai.apiKeySecret.create }}
+          {{- if or .Values.ai.apiKeySecret.create .Values.ai.apiKeySecret.sealedSecret.create }}
           env:
             - name: VLAM_AI_API_KEY
               valueFrom:
                 secretKeyRef:
                   name: {{ include "vlamguard.fullname" . }}-ai
-                  key: VLAM_AI_API_KEY
+                  key: {{ .Values.ai.apiKeySecret.key | default "VLAM_AI_API_KEY" }}
           {{- else if .Values.ai.apiKeySecret.existingSecret }}
           env:
             - name: VLAM_AI_API_KEY

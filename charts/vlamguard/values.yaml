@@ -67,6 +67,13 @@ ai:
     existingSecret: ""
     # -- Key within the existing Secret
     key: "VLAM_AI_API_KEY"
+    sealedSecret:
+      # -- Create a SealedSecret (requires Sealed Secrets controller in cluster)
+      create: false
+      # -- Encrypted data produced by kubeseal (base64-encoded ciphertext)
+      encryptedData: ""
+      # -- Annotations for the SealedSecret resource
+      annotations: {}
 
 resources:
   requests:

@@ -4,6 +4,10 @@ import asyncio
 import json as json_module
 from pathlib import Path
 
+from dotenv import load_dotenv
+
+load_dotenv()
+
 import typer
 import yaml
 from rich.console import Console

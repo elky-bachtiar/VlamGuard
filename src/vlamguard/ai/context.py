@@ -15,7 +15,15 @@ from vlamguard.models.response import (
 
 _DEFAULT_BASE_URL = "http://localhost:11434/v1"
 _DEFAULT_MODEL = "llama3.2"
-_TIMEOUT_SECONDS = 15
+_DEFAULT_TIMEOUT_SECONDS = 30
+
+
+def _get_timeout() -> int:
+    """Get AI request timeout from env or default."""
+    try:
+        return int(os.environ.get("VLAM_AI_TIMEOUT", _DEFAULT_TIMEOUT_SECONDS))
+    except (TypeError, ValueError):
+        return _DEFAULT_TIMEOUT_SECONDS
 
 _SYSTEM_PROMPT = """You are VlamGuard AI, an infrastructure risk analyst. You receive Kubernetes manifest metadata and policy check results. Respond with a JSON object containing:
 
@@ -107,7 +115,7 @@ async def get_ai_context(
     headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
 
     try:
-        async with httpx.AsyncClient(timeout=_TIMEOUT_SECONDS) as client:
+        async with httpx.AsyncClient(timeout=_get_timeout()) as client:
             response = await client.post(
                 f"{base_url}/chat/completions",
                 headers=headers,
@@ -204,7 +212,7 @@ async def get_security_ai_context(
     headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
 
     try:
-        async with httpx.AsyncClient(timeout=_TIMEOUT_SECONDS) as client:
+        async with httpx.AsyncClient(timeout=_get_timeout()) as client:
             response = await client.post(
                 f"{base_url}/chat/completions",
                 headers=headers,

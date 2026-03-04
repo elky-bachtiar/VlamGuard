@@ -1,11 +1,45 @@
 # VlamGuard
 
+[![CI](https://github.com/elky-bachtiar/VlamGuard/actions/workflows/ci.yml/badge.svg)](https://github.com/elky-bachtiar/VlamGuard/actions/workflows/ci.yml)
+[![Release](https://github.com/elky-bachtiar/VlamGuard/actions/workflows/release.yml/badge.svg)](https://github.com/elky-bachtiar/VlamGuard/actions/workflows/release.yml)
+[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
+
 Intelligent change risk engine for infrastructure changes. Combines a deterministic policy engine with an AI-powered context layer to analyze Kubernetes/Helm deployments before they hit production.
 
-## Prerequisites
+## Installation
 
-- Python 3.12+
-- [uv](https://docs.astral.sh/uv/getting-started/installation/)
+### Standalone binary (recommended for CI)
+
+Download a pre-built binary from the [latest release](https://github.com/elky-bachtiar/VlamGuard/releases/latest) — no Python required:
+
+| Platform | Binary |
+|----------|--------|
+| Linux (amd64) | `vlamguard-linux-amd64` |
+| macOS (Intel) | `vlamguard-darwin-amd64` |
+| macOS (Apple Silicon) | `vlamguard-darwin-arm64` |
+| Windows (amd64) | `vlamguard-windows-amd64.exe` |
+
+```bash
+# Example: Linux
+curl -Lo vlamguard https://github.com/elky-bachtiar/VlamGuard/releases/latest/download/vlamguard-linux-amd64
+chmod +x vlamguard
+./vlamguard --help
+```
+
+> **macOS note:** Unsigned binaries require `xattr -d com.apple.quarantine vlamguard` on first run.
+
+### From source
+
+Requires Python 3.12+ and [uv](https://docs.astral.sh/uv/getting-started/installation/).
+
+```bash
+git clone https://github.com/elky-bachtiar/VlamGuard.git && cd VlamGuard
+uv sync
+uv run vlamguard --help
+```
+
+### Prerequisites
+
 - [Helm 3](https://helm.sh/docs/intro/install/) (for chart rendering)
 
 Optional (for extended validation):
@@ -13,17 +47,6 @@ Optional (for extended validation):
 - [kube-score](https://github.com/zegl/kube-score) — extra validation layer
 - [KubeLinter](https://github.com/stackrox/kube-linter) — security-focused checks
 - [Polaris](https://github.com/FairwindsOps/polaris) — score-based validation benchmark
-
-## Installation
-
-```bash
-# Clone and install
-git clone <repo-url> && cd VlamGuard
-uv sync
-
-# Verify
-uv run vlamguard --help
-```
 
 ## CLI Usage
 
@@ -49,6 +72,7 @@ uv run vlamguard check --manifests ./tests/fixtures/evident-risk.yaml --env prod
 | `--env` | `production` | Target environment: `dev`, `staging`, `production` |
 | `--skip-ai` | `false` | Skip AI context generation |
 | `--skip-external` | `false` | Skip external tools (kube-score, KubeLinter, Polaris) |
+| `--no-security-scan` | `false` | Disable secrets detection + extended checks + grading |
 | `--output` | `terminal` | Output format: `terminal`, `json`, `markdown` |
 | `--output-file` | — | Write report to file instead of stdout |
 
@@ -86,10 +110,12 @@ VlamGuard integrates with three established Kubernetes validation tools as suppl
 ### How it works
 
 ```
-Helm render → VlamGuard policy engine (17 checks) → External tools → AI context → Report
+Helm render → 22 Policy Checks → Secrets Detection → Risk Scoring → External Tools → AI Context → Report
 ```
 
-External tools run after VlamGuard's own checks and before AI analysis. Their findings appear in a dedicated "External Tool Findings" section in the report. Polaris provides a compliance score shown side-by-side with VlamGuard's risk score.
+Secrets detection feeds directly into risk scoring: confirmed secrets in production trigger hard blocks (score=100), while hard-pattern matches in non-production environments add +30 to the soft risk score per finding.
+
+External tools run after scoring and before AI analysis. Their findings appear in a dedicated "External Tool Findings" section in the report. Polaris provides a compliance score shown side-by-side with VlamGuard's risk score.
 
 ### What VlamGuard adds
 
@@ -128,7 +154,8 @@ Endpoints:
   "values": {"replicaCount": 3},
   "environment": "production",
   "skip_ai": false,
-  "skip_external": false
+  "skip_external": false,
+  "security_scan": true
 }
 ```
 
@@ -143,6 +170,12 @@ Endpoints:
   "policy_checks": [...],
   "external_findings": [...],
   "polaris_score": 85,
+  "security_grade": "A",
+  "security": {
+    "secrets_detection": {...},
+    "extended_checks": [...],
+    "hardening_recommendations": [...]
+  },
   "ai_context": {...},
   "metadata": {...}
 }
@@ -166,7 +199,7 @@ helm install vlamguard charts/vlamguard/ \
   --set ai.apiKeySecret.apiKey="sk-..."
 ```
 
-The chart's default Deployment passes all 17 VlamGuard policy checks in production mode (risk score 0/100). See `charts/vlamguard/values.yaml` for all options.
+The chart's default Deployment passes all 22 VlamGuard policy checks in production mode (risk score 0/100, grade A). See `charts/vlamguard/values.yaml` for all options.
 
 ## AI Context (optional)
 
@@ -189,6 +222,13 @@ docker compose up --build
 ```
 
 The Docker image includes Helm, kube-score, KubeLinter, and Polaris pre-installed. The API server runs on `http://localhost:8000`.
+
+Published images are available from GitHub Container Registry:
+
+```bash
+docker pull ghcr.io/elky-bachtiar/vlamguard:v1.0.0
+docker pull ghcr.io/elky-bachtiar/vlamguard:latest
+```
 
 ## CI/CD Integration
 
@@ -229,7 +269,7 @@ Seven scenarios covering clean deploys, evident risks, subtle impacts, best-prac
 ## Tests
 
 ```bash
-uv run pytest              # all tests (184)
+uv run pytest              # all tests (346+)
 uv run pytest --cov        # with coverage
 uv run pytest tests/unit/  # unit + integration only
 uv run pytest tests/e2e/   # E2E CLI tests (requires Helm)
@@ -256,3 +296,54 @@ uv run pytest tests/e2e/   # E2E CLI tests (requires Helm)
 | CronJob missing `startingDeadlineSeconds` | medium | soft risk | off |
 | Deprecated API versions | medium | soft risk | soft risk |
 | Duplicate environment variables | medium | soft risk | soft risk |
+| Host namespace sharing | critical | hard block | soft risk |
+| Dangerous volume mounts | critical | hard block | soft risk |
+| Excessive Linux capabilities | high | soft risk | off |
+| Service account token auto-mount | medium | soft risk | off |
+| Exposed services (NodePort/LoadBalancer) | medium | soft risk | off |
+
+## Security Scan
+
+The security scan layer goes beyond policy checks with secrets detection, extended security checks, and a letter grade (A-F). Enabled by default in `vlamguard check` (disable with `--no-security-scan`), or use the dedicated `vlamguard security-scan` command.
+
+### Secrets Detection
+
+Scans container env vars, command/args, ConfigMap data (including `envFrom configMapRef` cross-references), annotations, and Helm values for leaked credentials using regex patterns and Shannon entropy analysis.
+
+**Hard patterns** (production = hard block, non-prod = +30 soft risk per finding):
+`private_key`, `aws_access_key`, `aws_secret_key`, `github_token`, `database_url`, `generic_password_env`
+
+**Soft patterns**: `suspicious_key_name`, `high_entropy_string`, `base64_in_configmap`
+
+### Risk Scoring Integration
+
+Secrets are integrated into VlamGuard's risk scoring engine:
+
+| Environment | Confirmed secret (hard pattern) | Effect |
+|-------------|--------------------------------|--------|
+| `production` | Yes | **Hard block** — score=100, `blocked=true` |
+| `dev`/`staging` | Yes (downgraded to soft risk) | **+30 per finding** to soft score |
+
+### Security Grade
+
+Deterministic F-to-A cascade based on secrets, extended checks, and AI hardening recommendations.
+
+### Security Scan CLI
+
+```bash
+# Focused security scan
+uv run vlamguard security-scan --chart ./demo/charts/security-scan-showcase --skip-ai
+
+# Full check with security scan (default)
+uv run vlamguard check --chart ./my-chart --skip-ai
+
+# Disable security scan
+uv run vlamguard check --chart ./my-chart --no-security-scan --skip-ai
+```
+
+## Documentation
+
+- [Full documentation](docs/README.md) — pipeline architecture, all 22 policy checks, security grading, API reference
+- [Contributing guide](CONTRIBUTING.md) — development setup, code style, PR process
+- [Changelog](CHANGELOG.md)
+- [License](LICENSE) (Apache 2.0)
