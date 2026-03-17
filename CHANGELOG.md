@@ -45,8 +45,10 @@ All notable changes to VlamGuard are documented here. This project uses [Convent
 
 ### Documentation
 
+- Added `docs/CLI.md` — comprehensive CLI reference covering all 4 commands, flags, exit codes, and environment variables
 - Added `docs/INSTALL.md` with installation guide for Linux, macOS, and Windows
 - Covers CLI usage, external tools setup, API server configuration, and AI backend configuration
+- Fixed README discrepancies: missing `--debug` flag, undocumented `VLAM_AI_TIMEOUT`, KEDA count (14→15), removed discontinued macOS Intel binary, updated test count
 
 ---
 
@@ -157,7 +159,7 @@ Enterprise readiness alpha release.
 - External tool integration: kube-score, KubeLinter, Polaris with graceful degradation; findings fed to AI
 - CLI (`vlamguard check`, `vlamguard security-scan`, `vlamguard discover`) with terminal/JSON/markdown output and CI-friendly exit codes
 - FastAPI server (`POST /api/v1/analyze`, `GET /health`)
-- Standalone binaries for Linux (amd64), macOS (Intel + Apple Silicon), Windows
+- Standalone binaries for Linux (amd64), macOS (Apple Silicon), Windows
 - Helm chart for self-deploying VlamGuard; default deployment scores grade A
 - Docker image with Helm, kube-score, KubeLinter, and Polaris pre-installed
 

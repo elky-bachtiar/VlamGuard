@@ -1,6 +1,6 @@
 [project]
 name = "vlamguard"
-version = "1.0.0a1"
+version = "1.0.0a2"
 description = "Intelligent change risk engine for infrastructure changes"
 readme = "README.md"
 authors = [

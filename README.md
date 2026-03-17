@@ -285,11 +285,11 @@ Published images are available from GitHub Container Registry and Docker Hub:
 
 ```bash
 # GitHub Container Registry
-docker pull ghcr.io/elky-bachtiar/vlamguard:v1.0.0-alpha.1
+docker pull ghcr.io/elky-bachtiar/vlamguard:v1.0.0-alpha.2
 docker pull ghcr.io/elky-bachtiar/vlamguard:latest
 
 # Docker Hub
-docker pull vlamguard/vlamguard:v1.0.0-alpha.1
+docker pull vlamguard/vlamguard:v1.0.0-alpha.2
 docker pull vlamguard/vlamguard:latest
 ```
 
@@ -509,6 +509,7 @@ uv run vlamguard compliance --output json
 
 - [Full documentation](docs/README.md) — pipeline architecture, all 79 policy checks, security grading, API reference
 - [CLI reference](docs/CLI.md) — all commands, flags, exit codes, environment variables
+- [Installation guide](docs/INSTALL.md) — binaries, source install, external tools, Docker, AI backend setup
 - [Contributing guide](CONTRIBUTING.md) — development setup, code style, PR process
 - [Changelog](CHANGELOG.md)
 - [License](LICENSE) (Apache 2.0)

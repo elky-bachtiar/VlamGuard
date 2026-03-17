@@ -1437,11 +1437,11 @@ Published images are available from GitHub Container Registry and Docker Hub:
 
 ```bash
 # GitHub Container Registry
-docker pull ghcr.io/elky-bachtiar/vlamguard:v1.0.0-alpha.1
+docker pull ghcr.io/elky-bachtiar/vlamguard:v1.0.0-alpha.2
 docker pull ghcr.io/elky-bachtiar/vlamguard:latest
 
 # Docker Hub
-docker pull vlamguard/vlamguard:v1.0.0-alpha.1
+docker pull vlamguard/vlamguard:v1.0.0-alpha.2
 docker pull vlamguard/vlamguard:latest
 ```
 
