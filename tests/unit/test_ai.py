@@ -437,7 +437,8 @@ class TestSchemaValidation:
         result = validate_ai_response(data)
         assert result is None
 
-    def test_empty_recommendations_rejected_by_jsonschema(self):
+    def test_empty_recommendations_accepted_by_jsonschema(self):
+        """Empty recommendations array is valid — OpenAI returns [] for clean manifests."""
         data = {
             "summary": "Test.",
             "impact_analysis": [],
@@ -445,7 +446,8 @@ class TestSchemaValidation:
             "rollback_suggestion": "kubectl rollout undo",
         }
         result = validate_ai_response(data)
-        assert result is None
+        assert result is not None
+        assert result.recommendations == []
 
     def test_structured_recommendation_object_passes(self):
         data = {
