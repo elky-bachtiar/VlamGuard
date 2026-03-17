@@ -20,6 +20,9 @@ dependencies = [
     "python-dotenv>=1.0.0",
 ]
 
+[project.optional-dependencies]
+integrations = ["ruamel.yaml>=0.18.0"]
+
 [project.scripts]
 vlamguard = "vlamguard.cli:app"
 
