@@ -47,7 +47,7 @@ AI_RESPONSE_SCHEMA: dict = {
                     },
                 ]
             },
-            "minItems": 1,
+            "minItems": 0,
         },
         "rollback_suggestion": {"type": "string", "minLength": 1},
         "secrets_detection": {
