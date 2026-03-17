@@ -1,0 +1,11 @@
+{
+  "eval_id": 3,
+  "eval_name": "gitlab-feature-request",
+  "prompt": "We're using GitLab and I noticed VlamGuard doesn't have any checks for Crossplane CRDs. I'd like to request that as a feature — things like composition validation, provider config checks, that sort of thing.",
+  "assertions": [
+    {"name": "correct_template", "description": "Uses .gitlab/issue_templates/feature_request.md (GitLab markdown), not GitHub YAML"},
+    {"name": "correct_cli", "description": "References 'glab issue create', not 'gh issue create'"},
+    {"name": "heredoc_description", "description": "Uses --description flag (not --body) with heredoc syntax"},
+    {"name": "crossplane_detail", "description": "Mentions Crossplane CRDs and specific features like composition validation"}
+  ]
+}

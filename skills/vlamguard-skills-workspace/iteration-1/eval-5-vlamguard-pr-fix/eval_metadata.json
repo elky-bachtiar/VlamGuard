@@ -1,0 +1,12 @@
+{
+  "eval_id": 5,
+  "eval_name": "vlamguard-pr-fix",
+  "prompt": "Run vlamguard on the helm chart in charts/vlamguard and fix whatever it finds. Open a PR with the results.",
+  "assertions": [
+    {"name": "json_output_flag", "description": "Uses --output json flag when running vlamguard check"},
+    {"name": "rerun_after_fix", "description": "Plan includes re-running VlamGuard after applying fixes to verify"},
+    {"name": "before_after_scores", "description": "PR body template includes before/after risk score and grade comparison"},
+    {"name": "feature_branch", "description": "Creates a fix/vlamguard-* branch, does not commit to main"},
+    {"name": "checks_addressed_table", "description": "PR body includes a table showing which checks went from FAIL to PASS"}
+  ]
+}

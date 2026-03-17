@@ -1,0 +1,11 @@
+{
+  "eval_id": 2,
+  "eval_name": "github-bug-report",
+  "prompt": "The vlamguard compliance command crashes with a KeyError when I pass --framework SOC2. Can you open a bug for this?",
+  "assertions": [
+    {"name": "correct_template", "description": "Uses bug_report.yml template, not security_vulnerability.yml"},
+    {"name": "title_prefix", "description": "Title starts with [Bug]: prefix"},
+    {"name": "correct_label", "description": "Includes 'bug' label"},
+    {"name": "steps_to_reproduce", "description": "Includes the exact command 'vlamguard compliance --framework SOC2' in reproduction steps"}
+  ]
+}

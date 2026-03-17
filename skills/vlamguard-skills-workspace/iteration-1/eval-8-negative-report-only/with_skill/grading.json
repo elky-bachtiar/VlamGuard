@@ -1,0 +1,6 @@
+{
+  "expectations": [
+    {"text": "correctly_declines", "passed": true, "evidence": "Output: 'Skill declined. The vlamguard-pr skill is designed for creating pull requests with fixes. Since you asked for a report only...'"},
+    {"text": "no_branch_creation", "passed": true, "evidence": "No branch or PR creation; ran vlamguard check directly and reported results"}
+  ]
+}

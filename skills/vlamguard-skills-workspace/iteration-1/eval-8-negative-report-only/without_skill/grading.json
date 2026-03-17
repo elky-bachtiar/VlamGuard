@@ -1,0 +1,6 @@
+{
+  "expectations": [
+    {"text": "correctly_declines", "passed": true, "evidence": "Only describes running vlamguard check, no PR or fix workflow"},
+    {"text": "no_branch_creation", "passed": true, "evidence": "States 'No files were created, modified, or deleted'"}
+  ]
+}

@@ -1,0 +1,8 @@
+{
+  "expectations": [
+    {"text": "correct_template", "passed": true, "evidence": "Uses bug_report.md structure, correctly classified as bug not security"},
+    {"text": "correct_cli", "passed": false, "evidence": "No explicit glab command shown - uses HTML comment metadata format but doesn't show the filing command"},
+    {"text": "specific_check_id", "passed": true, "evidence": "Mentions istio_virtualservice_timeout in title and throughout description, even identified root cause in source code"},
+    {"text": "false_positive_framing", "passed": true, "evidence": "Frames as false positive with detailed root cause analysis of truthiness check"}
+  ]
+}

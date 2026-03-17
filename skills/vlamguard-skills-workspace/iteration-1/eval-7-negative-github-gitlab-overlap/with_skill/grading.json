@@ -1,0 +1,6 @@
+{
+  "expectations": [
+    {"text": "correctly_declines", "passed": true, "evidence": "Output: 'The github-issue skill is not applicable here... Do NOT use for GitLab projects'"},
+    {"text": "no_gh_command", "passed": true, "evidence": "No gh issue create command suggested; recommends gitlab-issue skill or glab CLI instead"}
+  ]
+}

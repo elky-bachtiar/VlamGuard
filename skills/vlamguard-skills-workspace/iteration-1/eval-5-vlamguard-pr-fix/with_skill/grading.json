@@ -1,0 +1,9 @@
+{
+  "expectations": [
+    {"text": "json_output_flag", "passed": true, "evidence": "Step 1 uses '--output json' flag"},
+    {"text": "rerun_after_fix", "passed": true, "evidence": "Step 4: 'Re-run VlamGuard (After)' with verification and comparison"},
+    {"text": "before_after_scores", "passed": true, "evidence": "PR body template includes 'Before: Risk Score: X/100' and 'After: Risk Score: X/100'"},
+    {"text": "feature_branch", "passed": true, "evidence": "Creates 'fix/vlamguard-chart-network-policy' branch"},
+    {"text": "checks_addressed_table", "passed": true, "evidence": "PR body includes '| Check ID | Before | After | Fix Applied |' table"}
+  ]
+}

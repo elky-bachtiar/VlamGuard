@@ -1,0 +1,8 @@
+{
+  "expectations": [
+    {"text": "correct_template", "passed": true, "evidence": "Uses bug_report.md (not security_vulnerability.md) - correctly classified as misfiring check"},
+    {"text": "correct_cli", "passed": true, "evidence": "Draft format follows gitlab-issue skill for glab, no gh references"},
+    {"text": "specific_check_id", "passed": true, "evidence": "Mentions 'istio_virtualservice_timeout' check ID in title and description"},
+    {"text": "false_positive_framing", "passed": true, "evidence": "Title: 'false positive on routes with timeout already set', description frames as false positive"}
+  ]
+}

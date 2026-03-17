@@ -1,0 +1,55 @@
+{
+  "skill_name": "vlamguard-skills",
+  "iteration": 1,
+  "configurations": [
+    {
+      "name": "with_skill",
+      "results": [
+        {"eval_name": "github-security-issue", "pass_rate": 1.0, "total_tokens": 13753, "duration_seconds": 31.8},
+        {"eval_name": "github-bug-report", "pass_rate": 1.0, "total_tokens": 21709, "duration_seconds": 71.3},
+        {"eval_name": "gitlab-feature-request", "pass_rate": 1.0, "total_tokens": 13739, "duration_seconds": 36.6},
+        {"eval_name": "gitlab-bug-report", "pass_rate": 1.0, "total_tokens": 14768, "duration_seconds": 33.6},
+        {"eval_name": "vlamguard-pr-fix", "pass_rate": 1.0, "total_tokens": 25836, "duration_seconds": 104.6},
+        {"eval_name": "vlamguard-mr-fix", "pass_rate": 1.0, "total_tokens": 43045, "duration_seconds": 132.3},
+        {"eval_name": "negative-github-gitlab-overlap", "pass_rate": 1.0, "total_tokens": 12526, "duration_seconds": 24.6},
+        {"eval_name": "negative-report-only", "pass_rate": 1.0, "total_tokens": 17258, "duration_seconds": 45.2}
+      ],
+      "aggregate": {
+        "mean_pass_rate": 1.0,
+        "mean_tokens": 20329,
+        "mean_duration_seconds": 60.0
+      }
+    },
+    {
+      "name": "without_skill",
+      "results": [
+        {"eval_name": "github-security-issue", "pass_rate": 1.0, "total_tokens": 12235, "duration_seconds": 29.2},
+        {"eval_name": "github-bug-report", "pass_rate": 1.0, "total_tokens": 21873, "duration_seconds": 78.3},
+        {"eval_name": "gitlab-feature-request", "pass_rate": 0.5, "total_tokens": 13806, "duration_seconds": 49.5},
+        {"eval_name": "gitlab-bug-report", "pass_rate": 0.5, "total_tokens": 24597, "duration_seconds": 53.6},
+        {"eval_name": "vlamguard-pr-fix", "pass_rate": 0.6, "total_tokens": 29502, "duration_seconds": 83.6},
+        {"eval_name": "vlamguard-mr-fix", "pass_rate": 0.6, "total_tokens": 32356, "duration_seconds": 95.8},
+        {"eval_name": "negative-github-gitlab-overlap", "pass_rate": 1.0, "total_tokens": 13627, "duration_seconds": 38.0},
+        {"eval_name": "negative-report-only", "pass_rate": 1.0, "total_tokens": 11667, "duration_seconds": 27.1}
+      ],
+      "aggregate": {
+        "mean_pass_rate": 0.775,
+        "mean_tokens": 19958,
+        "mean_duration_seconds": 56.9
+      }
+    }
+  ],
+  "delta": {
+    "pass_rate": "+0.225 (100% vs 77.5%)",
+    "tokens": "+371 (comparable)",
+    "duration": "+3.1s (comparable)"
+  },
+  "analyst_observations": [
+    "Skills achieve 100% pass rate vs 77.5% baseline — the improvement is entirely in GitLab and PR/MR evals",
+    "Evals 1-2 (GitHub issues) are non-discriminating — both with-skill and baseline score 100%. The project templates are well-structured enough that Claude handles them correctly without guidance",
+    "Evals 7-8 (negative tests) are also non-discriminating — Claude correctly declines in both conditions. This validates the 'When NOT to use' sections but doesn't differentiate skill from no-skill",
+    "The skill's value shows most strongly in evals 3-4 (GitLab issues) and 5-6 (PR/MR workflows): baseline misses CLI commands (glab), flags (--description), footer URLs, and before/after score formatting",
+    "Token usage is comparable — skills don't add significant overhead",
+    "The baseline for eval 4 (GitLab bug) actually provided deeper root cause analysis by reading source code, but missed the CLI formatting requirements"
+  ]
+}

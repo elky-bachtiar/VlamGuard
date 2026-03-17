@@ -1,0 +1,9 @@
+{
+  "expectations": [
+    {"text": "json_output_flag", "passed": false, "evidence": "Uses '--environment production' but no '--output json' flag in the vlamguard check command"},
+    {"text": "rerun_after_fix", "passed": true, "evidence": "Step 5: 'Re-run VlamGuard to confirm fixes'"},
+    {"text": "before_after_scores", "passed": false, "evidence": "PR body has findings table but no before/after risk score comparison"},
+    {"text": "feature_branch", "passed": true, "evidence": "Creates 'fix/harden-vlamguard-chart' branch"},
+    {"text": "checks_addressed_table", "passed": true, "evidence": "PR body has '| Check ID | Severity | Description |' table with 7 resolved findings"}
+  ]
+}

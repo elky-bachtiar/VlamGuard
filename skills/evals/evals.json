@@ -1,0 +1,61 @@
+{
+  "skill_name": "vlamguard-skills",
+  "evals": [
+    {
+      "id": 1,
+      "skill": "github-issue",
+      "prompt": "I just ran vlamguard check on our production deployment and it's missing securityContext on 3 containers. Can you file a security issue for that? We're on GitHub.",
+      "expected_output": "Should read security_vulnerability.yml template, fill in the sections about missing securityContext checks, use [Security]: title prefix and security+policy labels, show draft to user before filing with gh issue create",
+      "files": []
+    },
+    {
+      "id": 2,
+      "skill": "github-issue",
+      "prompt": "The vlamguard compliance command crashes with a KeyError when I pass --framework SOC2. Can you open a bug for this?",
+      "expected_output": "Should read bug_report.yml template, classify as bug (not security), fill in steps to reproduce with the exact command, use [Bug]: title prefix and bug label, show draft before filing",
+      "files": []
+    },
+    {
+      "id": 3,
+      "skill": "gitlab-issue",
+      "prompt": "We're using GitLab and I noticed VlamGuard doesn't have any checks for Crossplane CRDs. I'd like to request that as a feature — things like composition validation, provider config checks, that sort of thing.",
+      "expected_output": "Should read .gitlab/issue_templates/feature_request.md, parse HTML comment metadata for title prefix and labels, fill sections with Crossplane CRD details, use glab issue create --description with heredoc, show draft first",
+      "files": []
+    },
+    {
+      "id": 4,
+      "skill": "gitlab-issue",
+      "prompt": "Our VlamGuard is giving false positives on the istio_virtualservice_timeout check — it flags routes that already have a 30s timeout set. This is on our GitLab repo. File a bug please.",
+      "expected_output": "Should read .gitlab/issue_templates/bug_report.md, classify as bug (misfiring check, not missing check), extract HTML comment metadata, fill with specific check ID and reproduction details, use glab issue create --description",
+      "files": []
+    },
+    {
+      "id": 5,
+      "skill": "vlamguard-pr",
+      "prompt": "Run vlamguard on the helm chart in charts/vlamguard and fix whatever it finds. Open a PR with the results.",
+      "expected_output": "Should run vlamguard check --output json, parse failures, apply fixes to manifests/values.yaml, re-run to verify, create branch fix/vlamguard-*, commit with before/after in message, open PR with gh pr create using the full report template including score comparison and checks addressed table",
+      "files": []
+    },
+    {
+      "id": 6,
+      "skill": "vlamguard-mr",
+      "prompt": "We're on GitLab. Our staging chart at charts/vlamguard has some policy failures. Run vlamguard, fix the issues, and open an MR.",
+      "expected_output": "Should run vlamguard check --output json, apply fixes, re-run to verify, create branch, commit with before/after, open MR with glab mr create --description (not --body, not gh), include full report template with score comparison, use gitlab.com link in footer",
+      "files": []
+    },
+    {
+      "id": 7,
+      "skill": "github-issue",
+      "prompt": "We're on GitLab and I want to file a bug about the KEDA checks not working properly.",
+      "expected_output": "Should NOT trigger github-issue — this is a GitLab project. Should use gitlab-issue skill instead with glab CLI.",
+      "files": []
+    },
+    {
+      "id": 8,
+      "skill": "vlamguard-pr",
+      "prompt": "Just run vlamguard check on our chart and show me the report. Don't change anything.",
+      "expected_output": "Should NOT trigger vlamguard-pr — user explicitly doesn't want code changes or a PR. Should just run vlamguard check and display the output.",
+      "files": []
+    }
+  ]
+}

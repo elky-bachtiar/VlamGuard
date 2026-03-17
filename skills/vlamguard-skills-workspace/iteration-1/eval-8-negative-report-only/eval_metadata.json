@@ -1,0 +1,9 @@
+{
+  "eval_id": 8,
+  "eval_name": "negative-report-only",
+  "prompt": "Just run vlamguard check on our chart and show me the report. Don't change anything.",
+  "assertions": [
+    {"name": "correctly_declines", "description": "Recognizes user does not want code changes and declines the PR workflow"},
+    {"name": "no_branch_creation", "description": "Does NOT suggest creating a branch or PR"}
+  ]
+}

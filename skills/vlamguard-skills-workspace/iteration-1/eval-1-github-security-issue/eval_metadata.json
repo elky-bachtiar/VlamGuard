@@ -1,0 +1,11 @@
+{
+  "eval_id": 1,
+  "eval_name": "github-security-issue",
+  "prompt": "I just ran vlamguard check on our production deployment and it's missing securityContext on 3 containers. Can you file a security issue for that? We're on GitHub.",
+  "assertions": [
+    {"name": "correct_template", "description": "Uses security_vulnerability.yml template, not bug_report.yml"},
+    {"name": "title_prefix", "description": "Title starts with [Security]: prefix from template"},
+    {"name": "correct_labels", "description": "Includes both 'security' and 'policy' labels"},
+    {"name": "required_fields_filled", "description": "All required fields from the template are populated (not blank or placeholder)"}
+  ]
+}

@@ -1,0 +1,8 @@
+{
+  "expectations": [
+    {"text": "correct_template", "passed": true, "evidence": "Uses .gitlab/issue_templates/feature_request.md sections (Problem Statement, Proposed Solution, Area, Priority, Alternatives)"},
+    {"text": "correct_cli", "passed": true, "evidence": "Draft is for glab issue create (GitLab), no mention of gh"},
+    {"text": "heredoc_description", "passed": true, "evidence": "Skill instructs use of --description with heredoc; draft follows gitlab-issue skill format"},
+    {"text": "crossplane_detail", "passed": true, "evidence": "Mentions Composition validation, ProviderConfig checks, XRD checks, managed resource checks, crossplane-reliability/crossplane-security categories"}
+  ]
+}

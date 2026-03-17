@@ -1,0 +1,9 @@
+{
+  "expectations": [
+    {"text": "correct_cli", "passed": true, "evidence": "Uses 'glab mr create' throughout, explicitly warns 'Do NOT use gh'"},
+    {"text": "description_flag", "passed": true, "evidence": "Uses '--description' flag (not --body)"},
+    {"text": "gitlab_footer", "passed": true, "evidence": "Footer: 'Generated with [VlamGuard](https://gitlab.com/elky-bachtiar/VlamGuard)'"},
+    {"text": "rerun_after_fix", "passed": true, "evidence": "Step 3: 'Re-run VlamGuard (After)' with before/after JSON comparison"},
+    {"text": "before_after_scores", "passed": true, "evidence": "MR description includes 'Before: Risk Score: X/100' and 'After: Risk Score: X/100'"}
+  ]
+}

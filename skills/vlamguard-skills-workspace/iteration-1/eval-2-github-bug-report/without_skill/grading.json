@@ -1,0 +1,8 @@
+{
+  "expectations": [
+    {"text": "correct_template", "passed": true, "evidence": "Uses bug_report.yml structure with all matching section headers"},
+    {"text": "title_prefix", "passed": true, "evidence": "Title: '[Bug]: vlamguard compliance --framework SOC2 crashes with KeyError'"},
+    {"text": "correct_label", "passed": true, "evidence": "Labels: bug"},
+    {"text": "steps_to_reproduce", "passed": true, "evidence": "Includes 'vlamguard compliance --framework SOC2' in steps and logs section"}
+  ]
+}

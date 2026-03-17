@@ -1,0 +1,9 @@
+{
+  "eval_id": 7,
+  "eval_name": "negative-github-gitlab-overlap",
+  "prompt": "We're on GitLab and I want to file a bug about the KEDA checks not working properly.",
+  "assertions": [
+    {"name": "correctly_declines", "description": "Recognizes this is a GitLab project and either declines the github-issue skill or redirects to gitlab-issue"},
+    {"name": "no_gh_command", "description": "Does NOT suggest using 'gh issue create'"}
+  ]
+}

@@ -1,0 +1,6 @@
+{
+  "expectations": [
+    {"text": "correctly_declines", "passed": true, "evidence": "Correctly identifies GitLab and uses .gitlab/issue_templates/bug_report.md with glab CLI"},
+    {"text": "no_gh_command", "passed": true, "evidence": "Uses glab issue create, not gh issue create"}
+  ]
+}

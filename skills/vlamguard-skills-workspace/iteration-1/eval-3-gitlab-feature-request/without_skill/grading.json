@@ -1,0 +1,8 @@
+{
+  "expectations": [
+    {"text": "correct_template", "passed": true, "evidence": "Uses .gitlab/issue_templates/feature_request.md sections with proper structure"},
+    {"text": "correct_cli", "passed": false, "evidence": "No explicit glab command shown - uses YAML frontmatter format instead of showing the glab command"},
+    {"text": "heredoc_description", "passed": false, "evidence": "No glab command with --description flag shown in the output"},
+    {"text": "crossplane_detail", "passed": true, "evidence": "Detailed 12 Crossplane checks across 4 categories with compliance tags"}
+  ]
+}

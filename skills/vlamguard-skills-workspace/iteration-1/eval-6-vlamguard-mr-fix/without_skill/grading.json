@@ -1,0 +1,9 @@
+{
+  "expectations": [
+    {"text": "correct_cli", "passed": true, "evidence": "Uses 'glab mr create' with correct syntax"},
+    {"text": "description_flag", "passed": true, "evidence": "Uses '--description' flag in glab mr create command"},
+    {"text": "gitlab_footer", "passed": false, "evidence": "Footer says 'Generated with [Claude Code](https://claude.com/claude-code)' instead of VlamGuard gitlab.com link"},
+    {"text": "rerun_after_fix", "passed": true, "evidence": "Step 6: 'Verify the Fix' re-runs vlamguard check, but AFTER push instead of before push"},
+    {"text": "before_after_scores", "passed": false, "evidence": "MR description has findings table but no before/after risk score comparison"}
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "eval_id": 4,
+  "eval_name": "gitlab-bug-report",
+  "prompt": "Our VlamGuard is giving false positives on the istio_virtualservice_timeout check — it flags routes that already have a 30s timeout set. This is on our GitLab repo. File a bug please.",
+  "assertions": [
+    {"name": "correct_template", "description": "Uses bug_report.md (not security_vulnerability.md) — this is a misfiring check, not a missing one"},
+    {"name": "correct_cli", "description": "References 'glab', not 'gh'"},
+    {"name": "specific_check_id", "description": "Mentions istio_virtualservice_timeout check ID in the bug description"},
+    {"name": "false_positive_framing", "description": "Frames issue as false positive / misfiring, not as a missing feature"}
+  ]
+}

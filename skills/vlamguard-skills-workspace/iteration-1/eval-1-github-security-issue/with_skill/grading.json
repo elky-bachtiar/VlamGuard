@@ -1,0 +1,8 @@
+{
+  "expectations": [
+    {"text": "correct_template", "passed": true, "evidence": "Uses security_vulnerability template - title prefix [Security]:, labels security+policy, sections match template fields"},
+    {"text": "title_prefix", "passed": true, "evidence": "Title: '[Security]: Missing securityContext on 3 containers in production deployment'"},
+    {"text": "correct_labels", "passed": true, "evidence": "Labels: security, policy"},
+    {"text": "required_fields_filled", "passed": true, "evidence": "All 3 required fields filled: Policy Gap Description, Policy Category (security), Suggested Severity (high). Optional fields also filled."}
+  ]
+}

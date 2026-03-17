@@ -1,0 +1,8 @@
+{
+  "expectations": [
+    {"text": "correct_template", "passed": true, "evidence": "Explicitly notes 'Template: Security Policy Gap (security_vulnerability.yml)'"},
+    {"text": "title_prefix", "passed": true, "evidence": "Title: '[Security]: Missing securityContext on 3 production containers'"},
+    {"text": "correct_labels", "passed": true, "evidence": "Labels: security, policy"},
+    {"text": "required_fields_filled", "passed": true, "evidence": "All sections filled including Policy Gap Description, Policy Category, Suggested Severity"}
+  ]
+}

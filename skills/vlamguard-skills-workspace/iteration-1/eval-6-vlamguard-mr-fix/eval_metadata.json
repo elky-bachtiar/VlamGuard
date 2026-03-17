@@ -1,0 +1,12 @@
+{
+  "eval_id": 6,
+  "eval_name": "vlamguard-mr-fix",
+  "prompt": "We're on GitLab. Our staging chart at charts/vlamguard has some policy failures. Run vlamguard, fix the issues, and open an MR.",
+  "assertions": [
+    {"name": "correct_cli", "description": "Uses 'glab mr create', not 'gh pr create'"},
+    {"name": "description_flag", "description": "Uses --description flag, not --body"},
+    {"name": "gitlab_footer", "description": "Footer links to gitlab.com, not github.com"},
+    {"name": "rerun_after_fix", "description": "Plan includes re-running VlamGuard after applying fixes"},
+    {"name": "before_after_scores", "description": "MR description includes before/after score comparison"}
+  ]
+}
