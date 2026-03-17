@@ -46,7 +46,7 @@
   - [Best-Practice Checks](#best-practice-checks)
   - [Quick Reference Table](#quick-reference-table)
 - [CRD Policy Checks](#crd-policy-checks)
-  - [KEDA Checks (14)](#keda-checks)
+  - [KEDA Checks (15)](#keda-checks)
   - [Argo CD Checks (8)](#argocd-checks)
   - [Istio Checks (10)](#istio-checks)
   - [cert-manager Checks (6)](#cert-manager-checks)
@@ -106,7 +106,6 @@ Download a pre-built binary from the [latest release](https://github.com/elky-ba
 | Platform | Binary |
 |----------|--------|
 | Linux (amd64) | `vlamguard-linux-amd64` |
-| macOS (Intel) | `vlamguard-darwin-amd64` |
 | macOS (Apple Silicon) | `vlamguard-darwin-arm64` |
 | Windows (amd64) | `vlamguard-windows-amd64.exe` |
 
@@ -265,6 +264,7 @@ vlamguard check [OPTIONS]
 | `--waivers PATH` | string | — | Path to waiver YAML file |
 | `--output TEXT` | string | `terminal` | Output format: `terminal`, `json`, `markdown` |
 | `--output-file PATH` | string | — | Write output to file |
+| `--debug` | flag | off | Enable debug logging for AI requests |
 
 > **Note:** Either `--chart` or `--manifests` is required. They are mutually exclusive.
 
@@ -305,6 +305,7 @@ vlamguard security-scan [OPTIONS]
 | `--waivers PATH` | string | — | Path to waiver YAML file |
 | `--output TEXT` | string | `terminal` | Output format |
 | `--output-file PATH` | string | — | Write output to file |
+| `--debug` | flag | off | Enable debug logging for AI requests |
 
 #### Examples
 
@@ -362,6 +363,7 @@ vlamguard discover [ROOT] [OPTIONS]
 | `--waivers TEXT` | string | — | Path to waivers YAML file |
 | `--output TEXT` | string | `terminal` | Output format: `terminal`, `json`, `markdown` |
 | `--output-file TEXT` | string | — | Write report to file |
+| `--debug` | flag | off | Enable debug logging for AI requests |
 
 The command walks the directory tree looking for `Chart.yaml` files, skipping `.git`, `node_modules`, `vendor`, `__pycache__`, `.venv`, and similar non-project directories. Each discovered chart is analyzed independently, and a summary table is printed at the end.
 
@@ -1208,6 +1210,7 @@ Recommendations:
 | `VLAM_AI_BASE_URL` | `http://localhost:11434/v1` | API base URL (Ollama default) |
 | `VLAM_AI_MODEL` | `llama3.2` | Model name |
 | `VLAM_AI_API_KEY` | — | Bearer token for authenticated endpoints |
+| `VLAM_AI_TIMEOUT` | `120` | AI request timeout in seconds |
 
 Works with **Ollama**, **vLLM**, **OpenAI**, or any compatible endpoint. Create a `.env` file or export the variables.
 
@@ -1330,6 +1333,7 @@ Full analysis pipeline.
 | `VLAM_AI_BASE_URL` | `http://localhost:11434/v1` | AI endpoint URL |
 | `VLAM_AI_MODEL` | `llama3.2` | AI model name |
 | `VLAM_AI_API_KEY` | — | Bearer token for AI endpoint |
+| `VLAM_AI_TIMEOUT` | `120` | AI request timeout in seconds |
 
 All variables can be set via a `.env` file in the project root.
 
@@ -1433,11 +1437,11 @@ Published images are available from GitHub Container Registry and Docker Hub:
 
 ```bash
 # GitHub Container Registry
-docker pull ghcr.io/elky-bachtiar/vlamguard:v1.0.0-alpha.1
+docker pull ghcr.io/elky-bachtiar/vlamguard:v1.0.0-alpha.2
 docker pull ghcr.io/elky-bachtiar/vlamguard:latest
 
 # Docker Hub
-docker pull vlamguard/vlamguard:v1.0.0-alpha.1
+docker pull vlamguard/vlamguard:v1.0.0-alpha.2
 docker pull vlamguard/vlamguard:latest
 ```
 

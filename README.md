@@ -94,6 +94,7 @@ uv run vlamguard discover . --skip-ai --output markdown --output-file discovery-
 | `--waivers` | — | Path to waivers YAML file |
 | `--output` | `terminal` | Output format: `terminal`, `json`, `markdown` |
 | `--output-file` | — | Write report to file. With `terminal` output, writes markdown AND prints Rich terminal output (dual output) |
+| `--debug` | `false` | Enable debug logging for AI requests |
 
 ### Exit codes
 
@@ -233,6 +234,38 @@ VlamGuard calls an OpenAI-compatible API for AI-powered analysis. Configure via 
 | `VLAM_AI_BASE_URL` | `http://localhost:11434/v1` | API base URL |
 | `VLAM_AI_MODEL` | `llama3.2` | Model name |
 | `VLAM_AI_API_KEY` | — | Bearer token for authenticated backends |
+| `VLAM_AI_TIMEOUT` | `120` | AI request timeout in seconds |
+
+**Setting environment variables:**
+
+Option 1 — `.env` file (all platforms, recommended):
+
+Create a `.env` file in the directory where you run the binary. The executable loads it automatically.
+
+```
+VLAM_AI_BASE_URL=https://api.openai.com/v1
+VLAM_AI_MODEL=gpt-4o
+VLAM_AI_API_KEY=sk-...
+```
+
+Option 2 — Shell environment variables:
+
+```bash
+# Linux / macOS
+export VLAM_AI_API_KEY=sk-...
+
+# Windows cmd
+set VLAM_AI_API_KEY=sk-...
+
+# Windows PowerShell
+$env:VLAM_AI_API_KEY = "sk-..."
+```
+
+Option 3 — Inline (Linux / macOS only):
+
+```bash
+VLAM_AI_API_KEY=sk-... ./vlamguard check values.yaml
+```
 
 Works with Ollama, vLLM, or any OpenAI-compatible endpoint. When unavailable or `--skip-ai` is set, VlamGuard runs policy checks only.
 
@@ -252,11 +285,11 @@ Published images are available from GitHub Container Registry and Docker Hub:
 
 ```bash
 # GitHub Container Registry
-docker pull ghcr.io/elky-bachtiar/vlamguard:v1.0.0-alpha.1
+docker pull ghcr.io/elky-bachtiar/vlamguard:v1.0.0-alpha.2
 docker pull ghcr.io/elky-bachtiar/vlamguard:latest
 
 # Docker Hub
-docker pull vlamguard/vlamguard:v1.0.0-alpha.1
+docker pull vlamguard/vlamguard:v1.0.0-alpha.2
 docker pull vlamguard/vlamguard:latest
 ```
 
@@ -313,7 +346,7 @@ Full production analysis of an insecure nginx deployment with all features enabl
 ## Tests
 
 ```bash
-uv run pytest              # all tests (1116)
+uv run pytest              # all tests (1130)
 uv run pytest --cov        # with coverage
 uv run pytest tests/unit/  # unit + integration only
 uv run pytest tests/e2e/   # E2E CLI tests (requires Helm)
@@ -475,6 +508,8 @@ uv run vlamguard compliance --output json
 ## Documentation
 
 - [Full documentation](docs/README.md) — pipeline architecture, all 79 policy checks, security grading, API reference
+- [CLI reference](docs/CLI.md) — all commands, flags, exit codes, environment variables
+- [Installation guide](docs/INSTALL.md) — binaries, source install, external tools, Docker, AI backend setup
 - [Contributing guide](CONTRIBUTING.md) — development setup, code style, PR process
 - [Changelog](CHANGELOG.md)
 - [License](LICENSE) (Apache 2.0)

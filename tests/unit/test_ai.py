@@ -437,7 +437,8 @@ class TestSchemaValidation:
         result = validate_ai_response(data)
         assert result is None
 
-    def test_empty_recommendations_rejected_by_jsonschema(self):
+    def test_empty_recommendations_accepted_by_jsonschema(self):
+        """Empty recommendations array is valid — OpenAI returns [] for clean manifests."""
         data = {
             "summary": "Test.",
             "impact_analysis": [],
@@ -445,7 +446,8 @@ class TestSchemaValidation:
             "rollback_suggestion": "kubectl rollout undo",
         }
         result = validate_ai_response(data)
-        assert result is None
+        assert result is not None
+        assert result.recommendations == []
 
     def test_structured_recommendation_object_passes(self):
         data = {
@@ -632,7 +634,7 @@ class TestGetTimeout:
     def test_returns_default_when_env_not_set(self, monkeypatch):
         monkeypatch.delenv("VLAM_AI_TIMEOUT", raising=False)
         result = _get_timeout()
-        assert result == 30
+        assert result == 120
 
     def test_returns_env_value_when_valid_integer(self, monkeypatch):
         monkeypatch.setenv("VLAM_AI_TIMEOUT", "60")
@@ -642,13 +644,13 @@ class TestGetTimeout:
     def test_returns_default_when_env_value_is_non_numeric_string(self, monkeypatch):
         monkeypatch.setenv("VLAM_AI_TIMEOUT", "not-a-number")
         result = _get_timeout()
-        assert result == 30
+        assert result == 120
 
     def test_returns_default_when_env_value_is_float_string(self, monkeypatch):
         # int("3.5") raises ValueError — must fall back to default
         monkeypatch.setenv("VLAM_AI_TIMEOUT", "3.5")
         result = _get_timeout()
-        assert result == 30
+        assert result == 120
 
 
 # ---------------------------------------------------------------------------

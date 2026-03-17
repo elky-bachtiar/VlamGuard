@@ -1,6 +1,10 @@
 """JSON schema validation for AI output."""
 
+import logging
+
 import jsonschema
+
+logger = logging.getLogger("vlamguard.ai")
 
 from vlamguard.models.response import AIContext, HardeningAction, ImpactItem, Recommendation
 
@@ -43,7 +47,7 @@ AI_RESPONSE_SCHEMA: dict = {
                     },
                 ]
             },
-            "minItems": 1,
+            "minItems": 0,
         },
         "rollback_suggestion": {"type": "string", "minLength": 1},
         "secrets_detection": {
@@ -110,7 +114,8 @@ def validate_ai_response(data: object) -> AIContext | None:
 
     try:
         jsonschema.validate(instance=data, schema=AI_RESPONSE_SCHEMA)
-    except jsonschema.ValidationError:
+    except jsonschema.ValidationError as exc:
+        logger.debug("AI JSON schema validation failed: %s (path: %s)", exc.message, list(exc.absolute_path))
         return None
 
     try:
