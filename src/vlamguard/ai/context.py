@@ -120,6 +120,11 @@ def _normalise_ai_payload(data: dict) -> dict:
                 item["impact"] = _SEVERITY_MAP[item["impact"]]
             if item.get("effort") in _EFFORT_MAP:
                 item["effort"] = _EFFORT_MAP[item["effort"]]
+            # yaml_hint: object → JSON string (Mistral sometimes returns dicts)
+            if isinstance(item.get("yaml_hint"), dict):
+                item["yaml_hint"] = json.dumps(item["yaml_hint"], indent=2)
+            elif isinstance(item.get("yaml_hint"), list):
+                item["yaml_hint"] = json.dumps(item["yaml_hint"], indent=2)
 
     return data
 
