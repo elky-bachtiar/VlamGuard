@@ -1,9 +1,15 @@
 """Vlam AI client — OpenAI-compatible API integration."""
 
 import json
+import logging
 import os
+import re
 
 import httpx
+
+logger = logging.getLogger("vlamguard.ai")
+
+_FENCE_RE = re.compile(r"^```(?:json)?\s*\n?(.*?)\n?\s*```$", re.DOTALL)
 
 from vlamguard.ai.schemas import validate_ai_response, validate_security_ai_response
 from vlamguard.models.response import (
@@ -16,7 +22,106 @@ from vlamguard.models.response import (
 
 _DEFAULT_BASE_URL = "http://localhost:11434/v1"
 _DEFAULT_MODEL = "llama3.2"
-_DEFAULT_TIMEOUT_SECONDS = 30
+_DEFAULT_TIMEOUT_SECONDS = 120
+
+
+def _strip_markdown_fences(text: str) -> str:
+    """Strip markdown code fences (```json ... ```) from AI response content."""
+    stripped = text.strip()
+    m = _FENCE_RE.match(stripped)
+    return m.group(1) if m else stripped
+
+
+def _strip_js_comments(text: str) -> str:
+    """Remove JS-style // comments that are NOT inside JSON string values.
+
+    Walks character-by-character to track whether we're inside a quoted string.
+    Only strips // when outside strings to avoid corrupting URLs like https://...
+    """
+    result = []
+    i = 0
+    in_string = False
+    while i < len(text):
+        ch = text[i]
+        if ch == '\\' and in_string:
+            # Escaped character inside string — keep both chars
+            result.append(text[i:i + 2])
+            i += 2
+            continue
+        if ch == '"':
+            in_string = not in_string
+        if not in_string and ch == '/' and i + 1 < len(text) and text[i + 1] == '/':
+            # Skip to end of line
+            while i < len(text) and text[i] != '\n':
+                i += 1
+            continue
+        result.append(ch)
+        i += 1
+    return "".join(result)
+
+
+def _normalise_ai_payload(data: dict) -> dict:
+    """Coerce common model quirks so the response passes schema validation.
+
+    Models sometimes return structured objects where the schema expects strings
+    (e.g. summary as {"status":..., "message":...}, rollback_suggestion as an
+    object, or yaml_snippet as a dict instead of a YAML string).
+    """
+    # summary: object → string
+    if isinstance(data.get("summary"), dict):
+        data["summary"] = data["summary"].get("message") or json.dumps(data["summary"])
+
+    # rollback_suggestion: object or list → string
+    rs = data.get("rollback_suggestion")
+    if isinstance(rs, dict):
+        parts = []
+        if rs.get("strategy"):
+            parts.append(str(rs["strategy"]))
+        if rs.get("message"):
+            parts.append(str(rs["message"]))
+        for step in rs.get("steps", []):
+            if isinstance(step, str):
+                parts.append(step)
+            elif isinstance(step, dict):
+                cmd = step.get("command", "")
+                desc = step.get("description", "")
+                parts.append(f"{cmd} — {desc}" if desc else cmd)
+        data["rollback_suggestion"] = " ".join(parts) if parts else json.dumps(rs)
+    elif isinstance(rs, list):
+        data["rollback_suggestion"] = " ".join(str(s) for s in rs)
+
+    # recommendations[].yaml_snippet: object → YAML string
+    for rec in data.get("recommendations", []):
+        if isinstance(rec, dict) and isinstance(rec.get("yaml_snippet"), dict):
+            rec["yaml_snippet"] = json.dumps(rec["yaml_snippet"], indent=2)
+        # Remove unexpected keys that fail additionalProperties: false
+        if isinstance(rec, dict):
+            allowed = {"action", "reason", "resource", "yaml_snippet"}
+            for key in list(rec.keys()):
+                if key not in allowed:
+                    del rec[key]
+
+    # impact_analysis: empty list is fine but sometimes models omit it
+    if "impact_analysis" not in data:
+        data["impact_analysis"] = []
+
+    # impact_analysis[].severity and hardening_recommendations[].impact/effort:
+    # models sometimes return values outside the allowed enums
+    _SEVERITY_MAP = {"critical": "high", "info": "low", "warning": "medium"}
+    _EFFORT_MAP = {"critical": "high", "info": "low", "warning": "medium", "none": "low"}
+
+    for item in data.get("impact_analysis", []):
+        if isinstance(item, dict) and item.get("severity") in _SEVERITY_MAP:
+            item["severity"] = _SEVERITY_MAP[item["severity"]]
+
+    for item in data.get("hardening_recommendations", []):
+        if isinstance(item, dict):
+            if item.get("impact") in _SEVERITY_MAP:
+                item["impact"] = _SEVERITY_MAP[item["impact"]]
+            if item.get("effort") in _EFFORT_MAP:
+                item["effort"] = _EFFORT_MAP[item["effort"]]
+
+    return data
 
 
 def _get_timeout() -> int:
@@ -135,10 +240,13 @@ async def get_ai_context(
     api_key = os.environ.get("VLAM_AI_API_KEY")
     headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
 
+    url = f"{base_url}/chat/completions"
+    logger.debug("AI request: POST %s model=%s api_key_set=%s", url, model, bool(api_key))
+
     try:
         async with httpx.AsyncClient(timeout=_get_timeout()) as client:
             response = await client.post(
-                f"{base_url}/chat/completions",
+                url,
                 headers=headers,
                 json={
                     "model": model,
@@ -149,16 +257,30 @@ async def get_ai_context(
                     "temperature": 0.2,
                 },
             )
+            logger.debug("AI response: status=%s", response.status_code)
             response.raise_for_status()
             data = response.json()
 
         content = data["choices"][0]["message"]["content"]
-        parsed = json.loads(content)
-        return validate_ai_response(parsed)
+        content = _strip_markdown_fences(content)
+        try:
+            parsed = json.loads(content, strict=False)
+        except json.JSONDecodeError:
+            # Retry with JS comment stripping (model may add // comments)
+            content = _strip_js_comments(content)
+            parsed = json.loads(content, strict=False)
+        parsed = _normalise_ai_payload(parsed)
+        result = validate_ai_response(parsed)
+        if result is None:
+            logger.debug("AI schema validation failed. Keys: %s", list(parsed.keys()) if isinstance(parsed, dict) else type(parsed).__name__)
+            logger.debug("AI parsed summary type=%s, rollback type=%s", type(parsed.get("summary")).__name__ if isinstance(parsed, dict) else "N/A", type(parsed.get("rollback_suggestion")).__name__ if isinstance(parsed, dict) else "N/A")
+        return result
 
-    except (httpx.TimeoutException, httpx.HTTPError):
+    except (httpx.TimeoutException, httpx.HTTPError) as exc:
+        logger.debug("AI request failed: %s", exc)
         return None
-    except (json.JSONDecodeError, KeyError, IndexError):
+    except (json.JSONDecodeError, KeyError, IndexError) as exc:
+        logger.debug("AI response parse error: %s (body=%s)", exc, response.text if 'response' in dir() else "N/A")
         return None
 
 
@@ -236,10 +358,13 @@ async def get_security_ai_context(
     api_key = os.environ.get("VLAM_AI_API_KEY")
     headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
 
+    url = f"{base_url}/chat/completions"
+    logger.debug("Security AI request: POST %s model=%s api_key_set=%s", url, model, bool(api_key))
+
     try:
         async with httpx.AsyncClient(timeout=_get_timeout()) as client:
             response = await client.post(
-                f"{base_url}/chat/completions",
+                url,
                 headers=headers,
                 json={
                     "model": model,
@@ -250,11 +375,19 @@ async def get_security_ai_context(
                     "temperature": 0.2,
                 },
             )
+            logger.debug("Security AI response: status=%s", response.status_code)
             response.raise_for_status()
             data = response.json()
 
         content = data["choices"][0]["message"]["content"]
-        parsed = json.loads(content)
+        content = _strip_markdown_fences(content)
+        try:
+            parsed = json.loads(content, strict=False)
+        except json.JSONDecodeError:
+            # Retry with JS comment stripping (model may add // comments)
+            content = _strip_js_comments(content)
+            parsed = json.loads(content, strict=False)
+        parsed = _normalise_ai_payload(parsed)
 
         ai_context = validate_ai_response(parsed)
         security_ai = validate_security_ai_response(parsed)
@@ -268,7 +401,9 @@ async def get_security_ai_context(
 
         return ai_context, hardening_recs, secrets_ai_data
 
-    except (httpx.TimeoutException, httpx.HTTPError):
+    except (httpx.TimeoutException, httpx.HTTPError) as exc:
+        logger.debug("Security AI request failed: %s", exc)
         return None, [], None
-    except (json.JSONDecodeError, KeyError, IndexError):
+    except (json.JSONDecodeError, KeyError, IndexError) as exc:
+        logger.debug("Security AI response parse error: %s (body=%s)", exc, response.text if 'response' in dir() else "N/A")
         return None, [], None

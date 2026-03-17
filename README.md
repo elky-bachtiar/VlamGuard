@@ -234,6 +234,37 @@ VlamGuard calls an OpenAI-compatible API for AI-powered analysis. Configure via 
 | `VLAM_AI_MODEL` | `llama3.2` | Model name |
 | `VLAM_AI_API_KEY` | — | Bearer token for authenticated backends |
 
+**Setting environment variables:**
+
+Option 1 — `.env` file (all platforms, recommended):
+
+Create a `.env` file in the directory where you run the binary. The executable loads it automatically.
+
+```
+VLAM_AI_BASE_URL=https://api.openai.com/v1
+VLAM_AI_MODEL=gpt-4o
+VLAM_AI_API_KEY=sk-...
+```
+
+Option 2 — Shell environment variables:
+
+```bash
+# Linux / macOS
+export VLAM_AI_API_KEY=sk-...
+
+# Windows cmd
+set VLAM_AI_API_KEY=sk-...
+
+# Windows PowerShell
+$env:VLAM_AI_API_KEY = "sk-..."
+```
+
+Option 3 — Inline (Linux / macOS only):
+
+```bash
+VLAM_AI_API_KEY=sk-... ./vlamguard check values.yaml
+```
+
 Works with Ollama, vLLM, or any OpenAI-compatible endpoint. When unavailable or `--skip-ai` is set, VlamGuard runs policy checks only.
 
 AI recommendations are structured objects with an action, reason (explaining *why* the change matters), target resource reference, and optional YAML snippet showing the exact fix. Plain string recommendations are also supported for backward compatibility.
