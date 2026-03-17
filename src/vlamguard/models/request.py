@@ -31,3 +31,13 @@ class AnalyzeRequest(BaseModel):
         default=None,
         description="Path to waivers YAML file (optional)",
     )
+
+
+class ReportRequest(AnalyzeRequest):
+    """POST /api/v1/report — analysis + issue/PR creation."""
+
+    create_issues: bool = Field(default=False, description="Create a GitHub/GitLab issue")
+    create_pr: bool = Field(default=False, description="Apply fixes and create a PR/MR")
+    manifests_path: str | None = Field(default=None, description="Path to manifests for PR fixes")
+    remote: str = Field(default="origin", description="Git remote name")
+    platform_override: str | None = Field(default=None, description="Force platform: github or gitlab")
