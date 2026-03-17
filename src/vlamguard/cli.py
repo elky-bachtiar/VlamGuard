@@ -2,6 +2,7 @@
 
 import asyncio
 import json as json_module
+import logging
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -227,8 +228,12 @@ def check(
     waivers: str = typer.Option(None, "--waivers", help="Path to waivers YAML file"),
     output: str = typer.Option("terminal", help="Output format: terminal, json, markdown"),
     output_file: str = typer.Option(None, "--output-file", help="Write report to file"),
+    debug: bool = typer.Option(False, "--debug", help="Enable debug logging for AI requests"),
 ) -> None:
     """Run risk analysis on a Helm chart or pre-rendered manifests."""
+    if debug:
+        logging.basicConfig(level=logging.DEBUG, format="%(name)s %(levelname)s: %(message)s")
+
     if chart is None and manifests is None:
         console.print("[red]Error: provide --chart or --manifests[/]")
         raise typer.Exit(code=2)
@@ -268,8 +273,12 @@ def security_scan(
     waivers: str = typer.Option(None, "--waivers", help="Path to waivers YAML file"),
     output: str = typer.Option("terminal", help="Output format: terminal, json, markdown"),
     output_file: str = typer.Option(None, "--output-file", help="Write report to file"),
+    debug: bool = typer.Option(False, "--debug", help="Enable debug logging for AI requests"),
 ) -> None:
     """Run security-focused analysis (secrets + extended checks + grade)."""
+    if debug:
+        logging.basicConfig(level=logging.DEBUG, format="%(name)s %(levelname)s: %(message)s")
+
     if chart is None and manifests is None:
         console.print("[red]Error: provide --chart or --manifests[/]")
         raise typer.Exit(code=2)
@@ -368,8 +377,12 @@ def discover(
     waivers: str = typer.Option(None, "--waivers", help="Path to waivers YAML file"),
     output: str = typer.Option("terminal", help="Output format: terminal, json, markdown"),
     output_file: str = typer.Option(None, "--output-file", help="Write report to file"),
+    debug: bool = typer.Option(False, "--debug", help="Enable debug logging for AI requests"),
 ) -> None:
     """Discover and analyse all Helm charts under a directory tree."""
+    if debug:
+        logging.basicConfig(level=logging.DEBUG, format="%(name)s %(levelname)s: %(message)s")
+
     from rich.table import Table
 
     root_path = Path(root).resolve()

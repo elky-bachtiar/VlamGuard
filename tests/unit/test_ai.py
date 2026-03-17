@@ -632,7 +632,7 @@ class TestGetTimeout:
     def test_returns_default_when_env_not_set(self, monkeypatch):
         monkeypatch.delenv("VLAM_AI_TIMEOUT", raising=False)
         result = _get_timeout()
-        assert result == 30
+        assert result == 120
 
     def test_returns_env_value_when_valid_integer(self, monkeypatch):
         monkeypatch.setenv("VLAM_AI_TIMEOUT", "60")
@@ -642,13 +642,13 @@ class TestGetTimeout:
     def test_returns_default_when_env_value_is_non_numeric_string(self, monkeypatch):
         monkeypatch.setenv("VLAM_AI_TIMEOUT", "not-a-number")
         result = _get_timeout()
-        assert result == 30
+        assert result == 120
 
     def test_returns_default_when_env_value_is_float_string(self, monkeypatch):
         # int("3.5") raises ValueError — must fall back to default
         monkeypatch.setenv("VLAM_AI_TIMEOUT", "3.5")
         result = _get_timeout()
-        assert result == 30
+        assert result == 120
 
 
 # ---------------------------------------------------------------------------

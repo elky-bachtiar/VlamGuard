@@ -229,3 +229,7 @@ __marimo__/
 
 # Demo generated reports
 demo/reports/*.md
+
+*.bak
+
+vlam-proxy/

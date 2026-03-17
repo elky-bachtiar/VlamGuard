@@ -2,6 +2,54 @@
 
 All notable changes to VlamGuard are documented here. This project uses [Conventional Commits](https://www.conventionalcommits.org/).
 
+## [1.0.0-alpha.2] - 2026-03-17
+
+### Features
+
+#### Vlam AI Proxy Integration
+
+- Integrated VlamGuard with the vlam-proxy server for Vlam AI backend support (Mistral Medium via UbiOps)
+- `.env` now points to `http://localhost:8080/v1` (vlam-proxy) instead of OpenAI directly
+- Added `--debug` flag to `check`, `security-scan`, and `discover` CLI commands for full AI request/response logging
+- Debug output shows request URL, model name, API key presence, response status, and error details
+
+#### Robust AI Response Parsing
+
+- Strip markdown code fences (` ```json ... ``` `) that models wrap around JSON responses
+- Strip JS-style `//` comments using string-aware parser that preserves URLs and string content
+- `json.loads(strict=False)` to handle literal newlines in JSON string values
+- Normalise model quirks: object `summary` → string, object `rollback_suggestion` → string, object `yaml_snippet` → JSON string
+- Remove extra keys in recommendations that fail `additionalProperties` schema validation
+- Map out-of-enum values (`critical` → `high`) in `impact_analysis` and `hardening_recommendations`
+- Comment stripping applied as fallback only (try plain parse first, retry with comment removal on failure)
+
+#### Debug Logging for AI Client
+
+- Module-level logger `vlamguard.ai` with request/response lifecycle logging
+- Schema validation failures now log the specific error message and JSON path
+- Connection errors, HTTP errors, and parse errors all logged with full context instead of silent `None` returns
+
+### Bug Fixes
+
+- Fixed AI responses silently returning `None` on every failure with no diagnostic output
+- Fixed `AttributeError` when model returns `rollback_suggestion.steps` as list of strings instead of dicts
+- Increased default AI timeout from 30s to 120s to accommodate upstream Vlam AI response times
+
+### Testing
+
+- 1130 tests (was 1116) — added 14 new E2E tests for AI integration
+- `TestAIIntegrationE2E`: mock server verifies full AI pipeline (check + security-scan), debug flag output, model/auth forwarding, graceful failure handling
+- `TestAIResponseNormalisation`: markdown fences, JS comments, object-to-string coercion, combined quirks
+- `TestAIMalformedResponse`: non-JSON responses, HTTP 500 errors
+- Updated timeout default tests to match new 120s default
+
+### Documentation
+
+- Added `docs/INSTALL.md` with installation guide for Linux, macOS, and Windows
+- Covers CLI usage, external tools setup, API server configuration, and AI backend configuration
+
+---
+
 ## [1.0.0-alpha.1] - 2026-03-04
 
 Enterprise readiness alpha release.
