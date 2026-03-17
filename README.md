@@ -94,6 +94,7 @@ uv run vlamguard discover . --skip-ai --output markdown --output-file discovery-
 | `--waivers` | — | Path to waivers YAML file |
 | `--output` | `terminal` | Output format: `terminal`, `json`, `markdown` |
 | `--output-file` | — | Write report to file. With `terminal` output, writes markdown AND prints Rich terminal output (dual output) |
+| `--debug` | `false` | Enable debug logging for AI requests |
 
 ### Exit codes
 
@@ -233,6 +234,7 @@ VlamGuard calls an OpenAI-compatible API for AI-powered analysis. Configure via 
 | `VLAM_AI_BASE_URL` | `http://localhost:11434/v1` | API base URL |
 | `VLAM_AI_MODEL` | `llama3.2` | Model name |
 | `VLAM_AI_API_KEY` | — | Bearer token for authenticated backends |
+| `VLAM_AI_TIMEOUT` | `120` | AI request timeout in seconds |
 
 **Setting environment variables:**
 
@@ -344,7 +346,7 @@ Full production analysis of an insecure nginx deployment with all features enabl
 ## Tests
 
 ```bash
-uv run pytest              # all tests (1116)
+uv run pytest              # all tests (1130)
 uv run pytest --cov        # with coverage
 uv run pytest tests/unit/  # unit + integration only
 uv run pytest tests/e2e/   # E2E CLI tests (requires Helm)
@@ -506,6 +508,7 @@ uv run vlamguard compliance --output json
 ## Documentation
 
 - [Full documentation](docs/README.md) — pipeline architecture, all 79 policy checks, security grading, API reference
+- [CLI reference](docs/CLI.md) — all commands, flags, exit codes, environment variables
 - [Contributing guide](CONTRIBUTING.md) — development setup, code style, PR process
 - [Changelog](CHANGELOG.md)
 - [License](LICENSE) (Apache 2.0)
