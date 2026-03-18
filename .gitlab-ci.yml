@@ -62,7 +62,8 @@ test:
         fi
         sleep 1
       done
-    - export VLAM_AI_BASE_URL="http://localhost:${PROXY_PORT}"
+  variables:
+    VLAM_AI_BASE_URL: "http://localhost:${PROXY_PORT}"
   rules:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
     - if: $CI_COMMIT_BRANCH =~ /^feat\//
