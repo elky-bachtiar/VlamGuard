@@ -19,3 +19,9 @@ resources:
   limits:
     cpu: 500m
     memory: 256Mi
+securityContext:
+  capabilities:
+    drop:
+    - ALL
+  allowPrivilegeEscalation: false
+automountServiceAccountToken: false
