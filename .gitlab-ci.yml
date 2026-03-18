@@ -3,12 +3,6 @@ stages:
   - report
 
 variables:
-  VLAM_AI_MODEL: "${VLAM_AI_MODEL}"
-  VLAM_AI_API_KEY: "${VLAM_AI_API_KEY}"
-  VLAM_URL: "${VLAM_URL}"
-  VLAM_KEY: "${VLAM_KEY}"
-  PROXY_PORT: "${PROXY_PORT}"
-  SSL_VERIFY: "${SSL_VERIFY}"
   PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
 
 cache:

@@ -330,12 +330,12 @@ def check(
             )
         )
 
-        _output_response(response, output, output_file)
         _handle_integrations(
             response, create_issues, create_pr, dry_run,
             remote, platform,
             manifests_path=manifests or (chart + "/values.yaml" if chart else None),
         )
+        _output_response(response, output, output_file)
         raise typer.Exit(code=1 if response.blocked else 0)
 
     except HelmRenderError as e:
@@ -385,12 +385,12 @@ def security_scan(
             )
         )
 
-        _output_response(response, output, output_file)
         _handle_integrations(
             response, create_issues, create_pr, dry_run,
             remote, platform,
             manifests_path=manifests or (chart + "/values.yaml" if chart else None),
         )
+        _output_response(response, output, output_file)
         raise typer.Exit(code=1 if response.blocked else 0)
 
     except HelmRenderError as e:
@@ -439,8 +439,6 @@ def report(
             )
         )
 
-        _output_response(response, output, output_file)
-
         _handle_integrations(
             response,
             create_issues=True,
@@ -450,6 +448,7 @@ def report(
             platform=platform,
             manifests_path=manifests or (chart + "/values.yaml" if chart else None),
         )
+        _output_response(response, output, output_file)
 
         raise typer.Exit(code=1 if response.blocked else 0)
 
