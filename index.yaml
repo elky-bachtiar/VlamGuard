@@ -7,10 +7,10 @@ entries:
           description: "Enterprise readiness alpha with 79 policy checks"
       artifacthub.io/license: Apache-2.0
     apiVersion: v2
-    appVersion: 1.0.0-alpha.1
-    created: "2026-03-04T13:39:07.197307463Z"
+    appVersion: 1.0.0-alpha.2
+    created: "2026-03-18T10:08:59.755963265Z"
     description: A Helm chart for VlamGuard — Kubernetes manifest policy analysis
-    digest: fa4d4302f0318a30e1b9776b4359e2fd37611e5a92b7284f08b6aea4b577cb85
+    digest: d16d3d53f3453cd93c7691581d54912bb830a59136f34d95e718975b07a03df8
     home: https://github.com/elky-bachtiar/VlamGuard
     keywords:
     - vlamguard
@@ -24,4 +24,4 @@ entries:
     urls:
     - https://elky-bachtiar.github.io/VlamGuard/vlamguard-1.0.0.tgz
     version: 1.0.0
-generated: "2026-03-04T13:39:07.195954117Z"
+generated: "2026-03-18T10:08:59.755045988Z"
