@@ -277,15 +277,18 @@ async def get_ai_context(
         parsed = _normalise_ai_payload(parsed)
         result = validate_ai_response(parsed)
         if result is None:
-            logger.debug("AI schema validation failed. Keys: %s", list(parsed.keys()) if isinstance(parsed, dict) else type(parsed).__name__)
-            logger.debug("AI parsed summary type=%s, rollback type=%s", type(parsed.get("summary")).__name__ if isinstance(parsed, dict) else "N/A", type(parsed.get("rollback_suggestion")).__name__ if isinstance(parsed, dict) else "N/A")
+            logger.warning("AI schema validation failed. Keys: %s", list(parsed.keys()) if isinstance(parsed, dict) else type(parsed).__name__)
+            logger.warning("AI parsed summary type=%s, rollback type=%s", type(parsed.get("summary")).__name__ if isinstance(parsed, dict) else "N/A", type(parsed.get("rollback_suggestion")).__name__ if isinstance(parsed, dict) else "N/A")
         return result
 
-    except (httpx.TimeoutException, httpx.HTTPError) as exc:
-        logger.debug("AI request failed: %s", exc)
+    except httpx.TimeoutException as exc:
+        logger.warning("AI request timed out after %ss: %s", _get_timeout(), exc)
+        return None
+    except httpx.HTTPError as exc:
+        logger.warning("AI request failed: %s", exc)
         return None
     except (json.JSONDecodeError, KeyError, IndexError) as exc:
-        logger.debug("AI response parse error: %s (body=%s)", exc, response.text if 'response' in dir() else "N/A")
+        logger.warning("AI response parse error: %s (body=%s)", exc, response.text[:500] if 'response' in dir() else "N/A")
         return None
 
 
@@ -406,9 +409,12 @@ async def get_security_ai_context(
 
         return ai_context, hardening_recs, secrets_ai_data
 
-    except (httpx.TimeoutException, httpx.HTTPError) as exc:
-        logger.debug("Security AI request failed: %s", exc)
+    except httpx.TimeoutException as exc:
+        logger.warning("Security AI request timed out after %ss: %s", _get_timeout(), exc)
+        return None, [], None
+    except httpx.HTTPError as exc:
+        logger.warning("Security AI request failed: %s", exc)
         return None, [], None
     except (json.JSONDecodeError, KeyError, IndexError) as exc:
-        logger.debug("Security AI response parse error: %s (body=%s)", exc, response.text if 'response' in dir() else "N/A")
+        logger.warning("Security AI response parse error: %s (body=%s)", exc, response.text[:500] if 'response' in dir() else "N/A")
         return None, [], None

@@ -235,7 +235,15 @@ def _handle_integrations(
 
     # Validate AI context is present
     if response.ai_context is None:
-        console.print("[red]Error: AI analysis required for issue/PR creation. Remove --skip-ai or check AI configuration.[/]")
+        console.print(
+            "[red]Error: AI analysis failed — issue/PR creation requires a valid AI response.\n"
+            "  Possible causes:\n"
+            "  • AI endpoint unreachable (check VLAM_AI_BASE_URL)\n"
+            "  • Request timed out (increase VLAM_AI_TIMEOUT)\n"
+            "  • AI returned invalid/unparseable JSON\n"
+            "  • Schema validation failed on AI response\n"
+            "  Run with --debug to see the specific failure reason.[/]"
+        )
         raise typer.Exit(code=2)
 
     # Check if there are failures
