@@ -1,2 +1,12 @@
-replicaCount: 1
+automountServiceAccountToken: false
 image: nginx:1.25.3
+replicaCount: 2
+resources:
+  limits:
+    cpu: 500m
+    memory: 256Mi
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 1000
