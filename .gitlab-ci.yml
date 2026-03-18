@@ -39,6 +39,8 @@ test:
     # Install glab CLI
     - curl -sL "https://gitlab.com/api/v4/projects/gitlab-org%2Fcli/packages/generic/glab/1.89.0/glab_1.89.0_linux_amd64.deb" -o /tmp/glab.deb
     - dpkg -i /tmp/glab.deb
+    # Authenticate glab CLI with CI job token
+    - glab auth login --hostname gitlab.com --token "${CI_JOB_TOKEN}"
     # Configure git identity
     - git config --global user.name "gitlab-ci[bot]"
     - git config --global user.email "gitlab-ci[bot]@noreply.gitlab.com"
