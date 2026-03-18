@@ -32,6 +32,7 @@ test:
   before_script:
     - pip install uv
     - uv sync --frozen --dev
+    - uv pip install "ruamel.yaml>=0.18.0"
     - apt-get update -qq && apt-get install -y -qq git curl > /dev/null
     # Install glab CLI
     - curl -sL "https://gitlab.com/api/v4/projects/gitlab-org%2Fcli/packages/generic/glab/1.89.0/glab_1.89.0_linux_amd64.deb" -o /tmp/glab.deb

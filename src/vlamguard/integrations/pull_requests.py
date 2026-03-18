@@ -205,14 +205,50 @@ def create_pull_request(
         failed_count = len([c for c in response.policy_checks if not c.passed])
         title = f"fix: remediate {failed_count} VlamGuard policy failures"
 
-        cmd = [
-            platform.cli_command, "pr" if platform.platform == Platform.GITHUB else "mr",
-            "create", "--title", title, platform.body_flag, body,
-        ]
-        return run_cmd(cmd)
+        # Write body to temp file to avoid CLI argument length limits
+        import tempfile
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".md", delete=False
+        ) as tmp:
+            tmp.write(body)
+            body_file = tmp.name
+
+        try:
+            pr_type = "pr" if platform.platform == Platform.GITHUB else "mr"
+            if platform.platform == Platform.GITHUB:
+                cmd = [
+                    platform.cli_command, pr_type, "create",
+                    "--title", title,
+                    "--body-file", body_file,
+                    "--base", original_branch,
+                ]
+            else:
+                cmd = [
+                    platform.cli_command, pr_type, "create",
+                    "--title", title,
+                    platform.body_flag, body,
+                    "--target-branch", original_branch,
+                ]
+            return run_cmd(cmd)
+        finally:
+            Path(body_file).unlink(missing_ok=True)
 
     except PRCreationError:
         raise
+    except subprocess.CalledProcessError as e:
+        # Include stderr for better diagnostics
+        stderr = e.stderr.strip() if e.stderr else ""
+        detail = f"{e}"
+        if stderr:
+            detail = f"stderr: {stderr}"
+        try:
+            for fp in changed_files:
+                run_cmd(["git", "checkout", "--", fp])
+            run_cmd(["git", "checkout", original_branch])
+            run_cmd(["git", "branch", "-D", branch_name])
+        except Exception:
+            logger.warning("Cleanup failed after PR creation error")
+        raise PRCreationError(f"Failed to create {platform.term}: {detail}") from e
     except Exception as e:
         # Cleanup on failure
         try:
