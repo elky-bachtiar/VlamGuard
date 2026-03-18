@@ -1,0 +1,164 @@
+stages:
+  - test
+  - report
+
+variables:
+  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+
+cache:
+  paths:
+    - .cache/pip
+    - .venv/
+
+.python-setup:
+  image: python:3.12-slim
+  before_script:
+    - pip install uv
+    - uv sync --frozen --dev
+    - apt-get update -qq && apt-get install -y -qq git > /dev/null
+
+test:
+  extends: .python-setup
+  stage: test
+  script:
+    - uv run pytest --cov=src/vlamguard --cov-fail-under=95 -q
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+.vlamguard-report:
+  extends: .python-setup
+  stage: report
+  before_script:
+    - pip install uv
+    - uv sync --frozen --dev
+    - uv pip install "ruamel.yaml>=0.18.0"
+    - apt-get update -qq && apt-get install -y -qq git curl > /dev/null
+    # Install Helm 3
+    - curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+    # Install glab CLI
+    - curl -sL "https://gitlab.com/api/v4/projects/gitlab-org%2Fcli/packages/generic/glab/1.89.0/glab_1.89.0_linux_amd64.deb" -o /tmp/glab.deb
+    - dpkg -i /tmp/glab.deb
+    # Authenticate glab CLI with CI job token
+    - glab auth login --hostname gitlab.com --token "${CI_JOB_TOKEN}"
+    # Configure git identity
+    - git config --global user.name "gitlab-ci[bot]"
+    - git config --global user.email "gitlab-ci[bot]@noreply.gitlab.com"
+    # Start Vlam AI proxy
+    - pip install -r vlam-proxy/requirements.txt
+    - nohup python vlam-proxy/proxy.py --port "${PROXY_PORT}" > /tmp/vlam-proxy.log 2>&1 &
+    - |
+      echo "Waiting for proxy on port ${PROXY_PORT}..."
+      for i in $(seq 1 30); do
+        if curl -sf "http://localhost:${PROXY_PORT}/health" > /dev/null 2>&1; then
+          echo "Vlam AI proxy is ready"
+          curl -s "http://localhost:${PROXY_PORT}/health" | python -m json.tool
+          break
+        fi
+        if [ "$i" -eq 30 ]; then
+          echo "ERROR: Proxy failed to start. Logs:"
+          cat /tmp/vlam-proxy.log
+          exit 1
+        fi
+        sleep 1
+      done
+  variables:
+    VLAM_AI_BASE_URL: "http://localhost:${PROXY_PORT}"
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_COMMIT_BRANCH =~ /^feat\//
+  artifacts:
+    paths:
+      - demo/reports/
+    when: always
+    expire_in: 30 days
+
+vlamguard-report-best-practices-fail:
+  extends: .vlamguard-report
+  script:
+    - >
+      uv run vlamguard check
+      --chart demo/charts/best-practices-fail
+      --env production
+      --skip-external
+      --create-issues
+      --create-pr
+      --platform gitlab
+      --output json
+      --output-file demo/reports/best-practices-fail-report.json
+  allow_failure: true
+
+vlamguard-report-clean-deploy:
+  extends: .vlamguard-report
+  script:
+    - >
+      uv run vlamguard check
+      --chart demo/charts/clean-deploy
+      --env production
+      --skip-external
+      --create-issues
+      --create-pr
+      --platform gitlab
+      --output json
+      --output-file demo/reports/clean-deploy-report.json
+  allow_failure: true
+
+vlamguard-report-evident-risk:
+  extends: .vlamguard-report
+  script:
+    - >
+      uv run vlamguard check
+      --chart demo/charts/evident-risk
+      --env production
+      --skip-external
+      --create-issues
+      --create-pr
+      --platform gitlab
+      --output json
+      --output-file demo/reports/evident-risk-report.json
+  allow_failure: true
+
+vlamguard-report-hardened:
+  extends: .vlamguard-report
+  script:
+    - >
+      uv run vlamguard check
+      --chart demo/charts/hardened
+      --env production
+      --skip-external
+      --create-issues
+      --create-pr
+      --platform gitlab
+      --output json
+      --output-file demo/reports/hardened-report.json
+  allow_failure: true
+
+vlamguard-report-security-scan-showcase:
+  extends: .vlamguard-report
+  script:
+    - >
+      uv run vlamguard check
+      --chart demo/charts/security-scan-showcase
+      --env production
+      --skip-external
+      --create-issues
+      --create-pr
+      --platform gitlab
+      --output json
+      --output-file demo/reports/security-scan-showcase-report.json
+  allow_failure: true
+
+vlamguard-report-subtle-impact:
+  extends: .vlamguard-report
+  script:
+    - >
+      uv run vlamguard check
+      --chart demo/charts/subtle-impact
+      --env production
+      --skip-external
+      --create-issues
+      --create-pr
+      --platform gitlab
+      --output json
+      --output-file demo/reports/subtle-impact-report.json
+  allow_failure: true

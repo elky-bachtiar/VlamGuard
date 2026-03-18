@@ -1,0 +1,116 @@
+name: VlamGuard Demo Report
+
+on:
+  push:
+    branches: [main, feat/auto-issue-pr-creation]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+env:
+  VLAM_AI_MODEL: ${{ secrets.VLAM_AI_MODEL }}
+  VLAM_AI_API_KEY: ${{ secrets.VLAM_AI_API_KEY }}
+  VLAM_URL: ${{ secrets.VLAM_URL }}
+  VLAM_KEY: ${{ secrets.VLAM_KEY }}
+  PROXY_PORT: ${{ secrets.PROXY_PORT }}
+  SSL_VERIFY: ${{ secrets.SSL_VERIFY }}
+
+jobs:
+  report:
+    name: VlamGuard Report — ${{ matrix.chart }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      max-parallel: 1  # sequential to avoid branch conflicts for PRs
+      matrix:
+        chart:
+          - best-practices-fail
+          - clean-deploy
+          - evident-risk
+          - hardened
+          - security-scan-showcase
+          - subtle-impact
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install Helm 3
+        uses: azure/setup-helm@v4
+        with:
+          version: "3.17.0"
+
+      - name: Install dependencies
+        run: |
+          uv sync --frozen --dev
+          uv pip install "ruamel.yaml>=0.18.0"
+
+      - name: Start Vlam AI proxy
+        run: |
+          pip install -r vlam-proxy/requirements.txt
+          nohup python vlam-proxy/proxy.py --port "${PROXY_PORT}" > /tmp/vlam-proxy.log 2>&1 &
+          echo "Waiting for proxy on port ${PROXY_PORT}..."
+          for i in $(seq 1 30); do
+            if curl -sf "http://localhost:${PROXY_PORT}/health" > /dev/null 2>&1; then
+              echo "Vlam AI proxy is ready"
+              curl -s "http://localhost:${PROXY_PORT}/health" | python -m json.tool
+              break
+            fi
+            if [ "$i" -eq 30 ]; then
+              echo "ERROR: Proxy failed to start. Logs:"
+              cat /tmp/vlam-proxy.log
+              exit 1
+            fi
+            sleep 1
+          done
+
+      - name: Authenticate gh CLI
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh auth status
+
+      - name: Configure git identity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Run VlamGuard report
+        continue-on-error: true
+        env:
+          CHART_NAME: ${{ matrix.chart }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VLAM_AI_BASE_URL: http://localhost:${{ secrets.PROXY_PORT }}
+        run: |
+          uv run vlamguard check \
+            --chart "demo/charts/${CHART_NAME}" \
+            --env production \
+            --skip-external \
+            --create-issues \
+            --create-pr \
+            --platform github \
+            --output json \
+            --output-file "demo/reports/${CHART_NAME}-report.json"
+
+      - name: Show proxy logs on failure
+        if: failure()
+        run: cat /tmp/vlam-proxy.log 2>/dev/null || echo "No proxy logs found"
+
+      - name: Upload report artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vlamguard-report-${{ matrix.chart }}
+          path: demo/reports/${{ matrix.chart }}-report.json
+          retention-days: 30

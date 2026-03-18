@@ -26,6 +26,10 @@ from vlamguard.engine.waivers import apply_waivers, load_waivers
 from vlamguard.models.response import AnalyzeResponse, ExternalFinding, PolicyCheckResult, SecuritySection
 from vlamguard.report.generator import generate_markdown
 from vlamguard.report.terminal import print_report
+from vlamguard.integrations import IntegrationError
+from vlamguard.integrations.platform import detect_platform
+from vlamguard.integrations.issues import create_issue, build_issue_body, build_issue_title, select_labels
+from vlamguard.integrations.pull_requests import create_pull_request
 
 import vlamguard.engine.policies  # noqa: F401
 import vlamguard.engine.policies_extended  # noqa: F401
@@ -216,6 +220,80 @@ def _output_response(
             Path(output_file).write_text(generate_markdown(response))
 
 
+def _handle_integrations(
+    response: AnalyzeResponse,
+    create_issues: bool,
+    create_pr: bool,
+    dry_run: bool,
+    remote: str,
+    platform: str | None,
+    manifests_path: str | None,
+) -> None:
+    """Handle --create-issues and --create-pr flags after analysis."""
+    if not create_issues and not create_pr:
+        return
+
+    # Validate AI context is present
+    if response.ai_context is None:
+        console.print(
+            "[red]Error: AI analysis failed — issue/PR creation requires a valid AI response.\n"
+            "  Possible causes:\n"
+            "  • AI endpoint unreachable (check VLAM_AI_BASE_URL)\n"
+            "  • Request timed out (increase VLAM_AI_TIMEOUT)\n"
+            "  • AI returned invalid/unparseable JSON\n"
+            "  • Schema validation failed on AI response\n"
+            "  Run with --debug to see the specific failure reason.[/]"
+        )
+        raise typer.Exit(code=2)
+
+    # Check if there are failures
+    failed = [c for c in response.policy_checks if not c.passed]
+    if not failed:
+        console.print("[green]All checks pass — no issues to create.[/]")
+        return
+
+    if dry_run:
+        # Print what would be created
+        if create_issues:
+            title = build_issue_title(response, failed)
+            body = build_issue_body(response)
+            labels = select_labels(failed)
+            console.print("[bold]--- Dry Run: Issue ---[/]")
+            console.print(f"[bold]Title:[/] {title}")
+            console.print(f"[bold]Labels:[/] {', '.join(labels)}")
+            console.print(f"[bold]Body:[/]\n{body}")
+        if create_pr:
+            console.print("[bold]--- Dry Run: PR ---[/]")
+            console.print("[yellow]PR creation skipped in dry-run mode.[/]")
+        return
+
+    try:
+        platform_info = detect_platform(remote=remote, platform_override=platform)
+    except IntegrationError as e:
+        console.print(f"[red]Platform Error: {e}[/]")
+        raise typer.Exit(code=2)
+
+    issue_url = None
+    if create_issues:
+        try:
+            issue_url = create_issue(response, platform_info)
+            console.print(f"[green]Issue created: {issue_url}[/]")
+        except IntegrationError as e:
+            console.print(f"[red]Issue creation failed: {e}[/]")
+            raise typer.Exit(code=2)
+
+    if create_pr:
+        if not manifests_path:
+            console.print("[red]Error: --manifests or --chart required for PR creation.[/]")
+            raise typer.Exit(code=2)
+        try:
+            pr_url = create_pull_request(response, platform_info, manifests_path, issue_url=issue_url)
+            console.print(f"[green]{platform_info.term} created: {pr_url}[/]")
+        except IntegrationError as e:
+            console.print(f"[red]{platform_info.term} creation failed: {e}[/]")
+            raise typer.Exit(code=2)
+
+
 @app.command()
 def check(
     chart: str = typer.Option(None, help="Path to Helm chart directory"),
@@ -229,6 +307,11 @@ def check(
     output: str = typer.Option("terminal", help="Output format: terminal, json, markdown"),
     output_file: str = typer.Option(None, "--output-file", help="Write report to file"),
     debug: bool = typer.Option(False, "--debug", help="Enable debug logging for AI requests"),
+    create_issues: bool = typer.Option(False, "--create-issues", help="Create a GitHub/GitLab issue with findings"),
+    create_pr: bool = typer.Option(False, "--create-pr", help="Apply fixes and create a PR/MR"),
+    dry_run: bool = typer.Option(False, "--dry-run", help="Show what would be created without executing"),
+    remote: str = typer.Option("origin", "--remote", help="Git remote for platform detection"),
+    platform: str = typer.Option(None, "--platform", help="Override platform: github or gitlab"),
 ) -> None:
     """Run risk analysis on a Helm chart or pre-rendered manifests."""
     if debug:
@@ -255,6 +338,11 @@ def check(
             )
         )
 
+        _handle_integrations(
+            response, create_issues, create_pr, dry_run,
+            remote, platform,
+            manifests_path=manifests or (chart + "/values.yaml" if chart else None),
+        )
         _output_response(response, output, output_file)
         raise typer.Exit(code=1 if response.blocked else 0)
 
@@ -274,6 +362,11 @@ def security_scan(
     output: str = typer.Option("terminal", help="Output format: terminal, json, markdown"),
     output_file: str = typer.Option(None, "--output-file", help="Write report to file"),
     debug: bool = typer.Option(False, "--debug", help="Enable debug logging for AI requests"),
+    create_issues: bool = typer.Option(False, "--create-issues", help="Create a GitHub/GitLab issue with findings"),
+    create_pr: bool = typer.Option(False, "--create-pr", help="Apply fixes and create a PR/MR"),
+    dry_run: bool = typer.Option(False, "--dry-run", help="Show what would be created without executing"),
+    remote: str = typer.Option("origin", "--remote", help="Git remote for platform detection"),
+    platform: str = typer.Option(None, "--platform", help="Override platform: github or gitlab"),
 ) -> None:
     """Run security-focused analysis (secrets + extended checks + grade)."""
     if debug:
@@ -300,7 +393,71 @@ def security_scan(
             )
         )
 
+        _handle_integrations(
+            response, create_issues, create_pr, dry_run,
+            remote, platform,
+            manifests_path=manifests or (chart + "/values.yaml" if chart else None),
+        )
         _output_response(response, output, output_file)
+        raise typer.Exit(code=1 if response.blocked else 0)
+
+    except HelmRenderError as e:
+        console.print(f"[red]Helm Error: {e}[/]")
+        raise typer.Exit(code=2)
+
+
+@app.command()
+def report(
+    chart: str = typer.Option(None, help="Path to Helm chart directory"),
+    values: str = typer.Option(None, help="Path to values YAML file"),
+    manifests: str = typer.Option(None, help="Path to pre-rendered YAML manifests"),
+    env: str = typer.Option("production", help="Target environment"),
+    skip_external: bool = typer.Option(False, "--skip-external", help="Skip external tools"),
+    waivers: str = typer.Option(None, "--waivers", help="Path to waivers YAML file"),
+    remote: str = typer.Option("origin", "--remote", help="Git remote for platform detection"),
+    platform: str = typer.Option(None, "--platform", help="Override platform: github or gitlab"),
+    dry_run: bool = typer.Option(False, "--dry-run", help="Show what would be created without executing"),
+    output: str = typer.Option("terminal", help="Output format: terminal, json, markdown"),
+    output_file: str = typer.Option(None, "--output-file", help="Write report to file"),
+    debug: bool = typer.Option(False, "--debug", help="Enable debug logging"),
+) -> None:
+    """Run analysis, create issues, and open a PR/MR with fixes."""
+    if debug:
+        logging.basicConfig(level=logging.DEBUG, format="%(name)s %(levelname)s: %(message)s")
+
+    if chart is None and manifests is None:
+        console.print("[red]Error: provide --chart or --manifests[/]")
+        raise typer.Exit(code=2)
+
+    try:
+        parsed, yaml_content = _load_manifests(chart, manifests, values)
+
+        values_data: dict = {}
+        if values:
+            values_data = yaml.safe_load(Path(values).read_text()) or {}
+
+        response = asyncio.run(
+            _analyze_manifests(
+                parsed, yaml_content, env,
+                skip_ai=False,  # AI is required for report
+                skip_external=skip_external,
+                security_scan=True,
+                values=values_data,
+                waivers_path=waivers,
+            )
+        )
+
+        _handle_integrations(
+            response,
+            create_issues=True,
+            create_pr=True,
+            dry_run=dry_run,
+            remote=remote,
+            platform=platform,
+            manifests_path=manifests or (chart + "/values.yaml" if chart else None),
+        )
+        _output_response(response, output, output_file)
+
         raise typer.Exit(code=1 if response.blocked else 0)
 
     except HelmRenderError as e:

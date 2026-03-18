@@ -230,5 +230,3 @@ __marimo__/
 demo/reports/*.md
 
 *.bak
-
-vlam-proxy/
