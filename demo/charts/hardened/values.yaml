@@ -1,2 +1,3 @@
-replicaCount: 2
+automountServiceAccountToken: false
 image: nginx:1.25.3
+replicaCount: 2
