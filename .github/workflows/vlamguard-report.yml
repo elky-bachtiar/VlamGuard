@@ -11,8 +11,12 @@ permissions:
   pull-requests: write
 
 env:
-  VLAM_AI_MODEL: ${{ vars.VLAM_AI_MODEL || 'llama3.2' }}
+  VLAM_AI_MODEL: ${{ secrets.VLAM_AI_MODEL }}
   VLAM_AI_API_KEY: ${{ secrets.VLAM_AI_API_KEY }}
+  VLAM_URL: ${{ secrets.VLAM_URL }}
+  VLAM_KEY: ${{ secrets.VLAM_KEY }}
+  PROXY_PORT: ${{ secrets.PROXY_PORT }}
+  SSL_VERIFY: ${{ secrets.SSL_VERIFY }}
 
 jobs:
   report:
@@ -52,19 +56,20 @@ jobs:
         run: uv sync --frozen --dev
 
       - name: Start Vlam AI proxy
-        env:
-          VLAM_URL: ${{ secrets.VLAM_URL }}
-          VLAM_KEY: ${{ secrets.VLAM_KEY }}
-          PROXY_PORT: ${{ secrets.PROXY_PORT }}
-          SSL_VERIFY: ${{ secrets.SSL_VERIFY }}
         run: |
           pip install -r vlam-proxy/requirements.txt
-          nohup python vlam-proxy/proxy.py --port "${PROXY_PORT:-8080}" &
-          # Wait for proxy to become healthy
+          nohup python vlam-proxy/proxy.py --port "${PROXY_PORT}" > /tmp/vlam-proxy.log 2>&1 &
+          echo "Waiting for proxy on port ${PROXY_PORT}..."
           for i in $(seq 1 30); do
-            if curl -sf "http://localhost:${PROXY_PORT:-8080}/health" > /dev/null 2>&1; then
+            if curl -sf "http://localhost:${PROXY_PORT}/health" > /dev/null 2>&1; then
               echo "Vlam AI proxy is ready"
+              curl -s "http://localhost:${PROXY_PORT}/health" | python -m json.tool
               break
+            fi
+            if [ "$i" -eq 30 ]; then
+              echo "ERROR: Proxy failed to start. Logs:"
+              cat /tmp/vlam-proxy.log
+              exit 1
             fi
             sleep 1
           done
@@ -84,7 +89,7 @@ jobs:
         env:
           CHART_NAME: ${{ matrix.chart }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          VLAM_AI_BASE_URL: http://localhost:${{ secrets.PROXY_PORT || '8080' }}
+          VLAM_AI_BASE_URL: http://localhost:${{ secrets.PROXY_PORT }}
         run: |
           uv run vlamguard check \
             --chart "demo/charts/${CHART_NAME}" \
@@ -95,6 +100,10 @@ jobs:
             --platform github \
             --output json \
             --output-file "demo/reports/${CHART_NAME}-report.json"
+
+      - name: Show proxy logs on failure
+        if: failure()
+        run: cat /tmp/vlam-proxy.log 2>/dev/null || echo "No proxy logs found"
 
       - name: Upload report artifact
         if: always()
