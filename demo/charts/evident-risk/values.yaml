@@ -1,4 +1,14 @@
-replicaCount: 1
+replicaCount: 2
 image:
   repository: nginx
   tag: "latest"
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  readOnlyRootFilesystem: true
+  allowPrivilegeEscalation: false
+resources:
+  limits:
+    cpu: 500m
+    memory: 256Mi
+automountServiceAccountToken: false
